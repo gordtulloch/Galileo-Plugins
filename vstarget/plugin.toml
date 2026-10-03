@@ -1,0 +1,17 @@
+# VSTarget plugin manifest — installed by the Galileo Plugin Marketplace or via
+# Options > Plugins > Install from file.  This file is the root-level manifest
+# inside the vstarget.zip distribution package.
+#
+# Both the planning (VSTPlugin) and analysis (VSTAnalysisPlugin) plugin classes
+# live in this single package; they are independently enable/disableable once
+# installed.
+
+name        = "vstarget"
+version     = "1.0.0"
+api_min     = "1"
+api_max     = "1"
+author      = "Gord Tulloch"
+description = "AAVSO variable-star target planning and photometric analysis (VST + VST-AN)"
+tier        = "first_party"
+nav_level   = "primary"
+entry_point = "vstarget"
