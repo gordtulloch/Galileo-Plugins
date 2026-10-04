@@ -2,7 +2,6 @@
 # Copyright (C) 2025-2026 Gord Tulloch
 
 """Qt panel widgets for the VSTarget plugin's two science sub-panels."""
-"""Test
 
 from __future__ import annotations
 
