@@ -35,6 +35,10 @@ class VSTPlugin(PluginBase):
     def deactivate(self) -> None:
         pass
 
+    def build_page(self):
+        from vstarget.ui import build_vst_page
+        return build_vst_page()
+
 
 class VSTAnalysisPlugin(PluginBase):
     """Variable star analysis plugin (VST-AN)."""
@@ -49,6 +53,10 @@ class VSTAnalysisPlugin(PluginBase):
 
     def deactivate(self) -> None:
         pass
+
+    def build_page(self):
+        from vstarget.ui import build_vst_analysis_page
+        return build_vst_analysis_page()
 
 
 __all__ = [
