@@ -34,6 +34,79 @@ def test_tc_vst_ext_010_aavso_target_tool_and_vsp_apis():
     assert hasattr(vsp_client, "fetch_comparison_stars"), "Must expose fetch_comparison_stars(target)"
 
 
+@pytest.mark.requirement("TC-VST-EXT-010")
+@pytest.mark.priority("MVP")
+def test_tc_vst_ext_010_vsp_chart_parsed_for_photometry():
+    """VST-EXT-010: VSP comparison-star data is parsed into the shape ensemble photometry consumes."""
+    vsp = pytest.importorskip("vstarget.planning.vsp_client")
+
+    # One usable V star, one with no V magnitude, one with unusable coordinates.
+    payload = {
+        "chartid": "X28077ABC",
+        "photometry": [
+            {
+                "auid": "000-BCT-123", "label": "118",
+                "ra": "08:53:44.67", "dec": "+57:48:40.6",
+                "bands": [
+                    {"band": "V", "mag": 11.8, "error": 0.03},
+                    {"band": "B", "mag": 12.4, "error": 0.05},
+                ],
+            },
+            {
+                "auid": "000-BCT-456", "label": "125",
+                "ra": "08:54:01.20", "dec": "+57:50:12.0",
+                "bands": [{"band": "B", "mag": 12.5, "error": 0.04}],
+            },
+            {
+                "auid": "000-BCT-789", "label": "131",
+                "ra": "", "dec": "",
+                "bands": [{"band": "V", "mag": 13.1, "error": 0.04}],
+            },
+        ],
+    }
+
+    chart = vsp.parse_chart(payload, filter_band="V")
+    assert chart.chart_id == "X28077ABC"
+    assert len(chart.stars) == 1, "Stars lacking the band, or with bad coordinates, are dropped"
+
+    star = chart.stars[0]
+    assert star["auid"] == "000-BCT-123"
+    assert star["label"] == "118"
+    # run_photometry indexes comparison stars by ra/dec in degrees and mag_<band>.
+    assert star["mag_v"] == 11.8
+    assert abs(star["ra"] - 133.436125) < 1e-6, "RA is sexagesimal hours -> degrees"
+    assert abs(star["dec"] - 57.811278) < 1e-6
+    assert star["error"] == 0.03
+
+    # The B ensemble sees the other star instead.
+    b_chart = vsp.parse_chart(payload, filter_band="B")
+    assert {s["label"] for s in b_chart.stars} == {"118", "125"}
+
+    # A target's coordinates are read from whichever representation is handed over.
+    models = pytest.importorskip("vstarget.planning.models")
+    assert vsp.target_coords({"ra": 154.0, "dec": 11.4}) == (154.0, 11.4)
+    assert vsp.target_coords({"ra_deg": 154.0, "dec_deg": 11.4}) == (154.0, 11.4)
+    assert vsp.target_coords(
+        models.AAVSOTarget(star_name="R Leo", ra=154.0, dec=11.4)
+    ) == (154.0, 11.4)
+
+
+@pytest.mark.requirement("TC-VST-EXT-010")
+@pytest.mark.priority("MVP")
+async def test_tc_vst_ext_010_vsp_failure_yields_empty_chart(monkeypatch):
+    """VST-EXT-010: A failed VSP lookup degrades to an empty chart, not an exception."""
+    vsp = pytest.importorskip("vstarget.planning.vsp_client")
+
+    client = vsp.AavsoVspClient()
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("VSP unreachable")
+    monkeypatch.setattr(client, "_get_chart", boom)
+
+    chart = await client.fetch_comparison_stars({"ra": 154.0, "dec": 11.4})
+    assert chart.stars == []
+    assert chart.chart_id == "na"
+
+
 # ---------------------------------------------------------------------------
 # TC-VST-010
 # ---------------------------------------------------------------------------
@@ -219,3 +292,67 @@ async def test_tc_vst_090_submit_target_to_scheduler_from_vst_ui(vst_planner):
     mock_scheduler.add_job.assert_called_once()
     submitted_job = mock_scheduler.add_job.call_args[0][0]
     assert "R Leo" in str(submitted_job)
+
+
+# ---------------------------------------------------------------------------
+# TC-VST-100
+# ---------------------------------------------------------------------------
+
+@pytest.mark.requirement("TC-VST-100")
+@pytest.mark.priority("MVP")
+def test_tc_vst_100_build_session_from_observation_plan():
+    """VST-100: Create a session from the observation plan, targets ordered by RA, one Image block per filter."""
+    pytest.importorskip("galileo.ui.sessions")
+    builder = pytest.importorskip("vstarget.planning.session_builder")
+    models = pytest.importorskip("vstarget.planning.models")
+    from galileo.ui.sessions import ImageBlock, PlateSolveBlock, TargetBlock
+
+    def target(name, ra_deg, filters, counts, intervals, binning):
+        return models.ObservingTarget(
+            aavso=models.AAVSOTarget(star_name=name, ra=ra_deg, dec=0.0),
+            script_filters=filters,
+            script_counts=counts,
+            script_intervals=intervals,
+            script_binning=binning,
+        )
+
+    # Deliberately out of RA order, to prove the builder sorts them.
+    targets = [
+        target("R Leo", 154.0, "V,B", "4,4", "30,60", "1,1"),
+        target("Mira", 34.8, "V", "3", "20", "2"),
+    ]
+
+    blocks = builder.build_blocks(
+        targets, builder.SessionOptions(platesolve=True, autofocus=False,
+                                        dither=False, guiding=False)
+    )
+
+    target_blocks = [b for b in blocks if isinstance(b, TargetBlock)]
+    assert [b.name for b in target_blocks] == ["Mira", "R Leo"], "Targets must be RA-ordered"
+
+    # Mira: Target, PlateSolve, one Image. R Leo: Target, PlateSolve, two Images.
+    assert [type(b).__name__ for b in blocks] == [
+        "TargetBlock", "PlateSolveBlock", "ImageBlock",
+        "TargetBlock", "PlateSolveBlock", "ImageBlock", "ImageBlock",
+    ]
+
+    mira_image = blocks[2]
+    assert isinstance(mira_image, ImageBlock)
+    assert (mira_image.filter, mira_image.count, mira_image.exposure, mira_image.binning) == (
+        "V", 3, 20.0, 2,
+    )
+
+    rleo_images = [b for b in blocks[4:] if isinstance(b, ImageBlock)]
+    assert [(b.filter, b.count, b.exposure) for b in rleo_images] == [
+        ("V", 4, 30.0), ("B", 4, 60.0),
+    ]
+    assert isinstance(blocks[4], PlateSolveBlock)
+
+    # Optional blocks are off unless asked for.
+    plain = builder.build_blocks(targets, builder.SessionOptions(platesolve=False))
+    assert not any(isinstance(b, PlateSolveBlock) for b in plain)
+
+    # A ragged plan is reported rather than silently mis-zipped.
+    ragged = [target("T CrB", 239.9, "V,B", "4", "15,15", "1,1")]
+    assert builder.validate_targets(ragged), "Mismatched parameter counts must warn"
+    assert not builder.validate_targets(targets)

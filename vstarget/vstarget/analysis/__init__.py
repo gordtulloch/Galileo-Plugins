@@ -27,15 +27,59 @@ logger = logging.getLogger(__name__)
 class VariableStarAnalysis:
     """Coordinates plate-solve, stack, photometry, transform, and report generation."""
 
-    def __init__(self) -> None:
-        self._photometry = AperturePhotometryEngine()
+    def __init__(
+        self,
+        aperture_radius: float | None = None,
+        annulus_inner: float | None = None,
+        annulus_outer: float | None = None,
+    ) -> None:
+        # The analysis panel's aperture field lands here. A sky annulus that
+        # stayed at the 12-20 px default would sit inside an aperture the user
+        # widened past 12 px, measuring the star as its own background, so an
+        # unspecified annulus scales with the aperture in the same 1.5x/2.5x
+        # proportion the engine's own defaults use.
+        engine: dict[str, float] = {}
+        if aperture_radius is not None:
+            radius = float(aperture_radius)
+            engine.update(
+                aperture_radius=radius,
+                annulus_inner=radius * 1.5,
+                annulus_outer=radius * 2.5,
+            )
+        if annulus_inner is not None:
+            engine["annulus_inner"] = float(annulus_inner)
+        if annulus_outer is not None:
+            engine["annulus_outer"] = float(annulus_outer)
+        self._photometry = AperturePhotometryEngine(**engine)
         self._solver = None
         self._comparison_stars: list[dict] = []
+        self._comparison_chart_id: str = "na"
         self._transformation_coefficients = None
 
     # --- Image retrieval (VST-AN-010) ------------------------------------
 
     # SftpImageRetriever is in vstarget.analysis.sftp_downloader
+
+    # --- Comparison stars (VST-EXT-010) ----------------------------------
+
+    async def load_comparison_stars(self, target, filter_band: str = "V",
+                                    field_of_view: float = 18.5) -> list[dict]:
+        """Fetch *target*'s AAVSO VSP sequence and use it for ensemble photometry.
+
+        Without this the engine has no comparison stars and
+        :meth:`run_photometry` can only return the target's instrumental
+        magnitude. The chart ID is kept alongside them because an AAVSO report
+        has to cite the chart its comparison magnitudes came from; the report
+        writer still emits a literal ``na`` there, so nothing reads it yet.
+        """
+        from vstarget.planning.vsp_client import AavsoVspClient
+
+        chart = await AavsoVspClient().fetch_comparison_stars(
+            target, filter_band=filter_band, field_of_view=field_of_view
+        )
+        self._comparison_stars = chart.stars
+        self._comparison_chart_id = chart.chart_id
+        return chart.stars
 
     # --- Plate solving (VST-AN-020) --------------------------------------
 
@@ -105,7 +149,10 @@ class VariableStarAnalysis:
                 magnitude=mag,
                 uncertainty=uncertainty,
                 filter_band=filter_band,
-                comp_star=self._comparison_stars[0]["label"] if self._comparison_stars else "",
+                # The magnitude comes from the whole ensemble, not one star, so
+                # the report names ENSEMBLE rather than the first comp star.
+                comp_star="ENSEMBLE" if self._comparison_stars else "",
+                chart_id=self._comparison_chart_id,
             )
         except Exception as exc:
             logger.exception("Photometry failed: %s", exc)
@@ -113,9 +160,10 @@ class VariableStarAnalysis:
 
     # --- AAVSO report (VST-AN-050) ---------------------------------------
 
-    def export_aavso_report(self, measurements: list, output_path: Path | str) -> None:
+    def export_aavso_report(self, measurements: list, output_path: Path | str,
+                            observer_code: str = "") -> None:
         from vstarget.analysis.report import save_aavso_report
-        save_aavso_report(measurements, output_path)
+        save_aavso_report(measurements, output_path, observer_code)
 
     # --- Transformation coefficients (VST-AN-060, VST-AN-070) ----------
 

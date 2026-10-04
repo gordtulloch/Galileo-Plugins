@@ -22,6 +22,13 @@ class PhotometryResult:
     comp_star: str = ""
     check_star: str = ""
     is_transformed: bool = False
+    # Reported to AAVSO alongside the measurement (VST-AN-050): the VSP chart
+    # the comparison magnitudes came from, the check star's catalog magnitude,
+    # and the airmass. Absent values are written as 'na' rather than guessed.
+    chart_id: str = ""
+    check_mag: float | None = None
+    airmass: float | None = None
+    notes: str = ""
 
 
 @dataclass
