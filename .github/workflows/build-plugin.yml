@@ -1,0 +1,35 @@
+name: Build Plugin ZIPs
+
+on:
+  push:
+    branches: [main]
+    # Trigger when any plugin's source or manifest changes.
+    paths:
+      - "*/plugin.toml"
+      - "*/**/*.py"
+      - "build_plugins.py"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to commit the built artifacts back
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build all plugin ZIPs and update plugins.json
+        run: python build_plugins.py
+
+      - name: Commit artifacts
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "ci: rebuild plugin ZIPs and update plugins.json [skip ci]"
+          # Picks up the new/updated ZIP for every plugin and the shared index.
+          file_pattern: "*/dist/*.zip plugins.json"

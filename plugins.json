@@ -1,0 +1,10 @@
+[
+  {
+    "name": "vstarget",
+    "description": "AAVSO variable-star target planning and photometric analysis (VST + VST-AN)",
+    "version": "1.0.0",
+    "tier": "first_party",
+    "author": "Gord Tulloch",
+    "download_url": "https://raw.githubusercontent.com/gordtulloch/Galileo-Plugins/main/vstarget/dist/galileo-plugin-vstarget-1.0.0.zip"
+  }
+]

@@ -147,15 +147,19 @@ def test_tc_vst_040_import_from_file(): ...
 
 ### Building a ZIP
 
-To produce an installable ZIP for the Galileo Plugin Marketplace or manual install:
+ZIPs are built automatically by the CI pipeline on every push to `main` that touches plugin source files.  To build locally:
 
 ```bash
-cd C:/Projects/Galileo-Plugins/vstarget
-# Include plugin.toml at the ZIP root alongside the vstarget/ package directory.
-python -m zipfile -c vstarget-1.0.0.zip plugin.toml vstarget/
+# From the repo root — builds all plugins and updates plugins.json:
+python build_plugins.py
+
+# Or from within the vstarget/ directory (convenience shim):
+python vstarget/build_zip.py
 ```
 
-The resulting `vstarget-1.0.0.zip` can be placed under `Galileo.web/assets/plug-ins/` to make it available through the in-app marketplace.
+Output: `vstarget/dist/galileo-plugin-vstarget-<version>.zip`
+
+`plugins.json` at the repo root is updated automatically; once committed and pushed, the new version appears in Galileo's Marketplace immediately.
 
 ---
 
@@ -233,11 +237,15 @@ class MyPlugin(PluginBase):
 
 ### 6. Build and distribute
 
+Add your plugin directory (e.g. `myplugin/`) to this repository following the same layout as `vstarget/`. The CI pipeline will discover it automatically and build a ZIP on the next push.
+
+To build locally before pushing:
+
 ```bash
-python -m zipfile -c myplugin-1.0.0.zip plugin.toml myplugin/
+python build_plugins.py myplugin
 ```
 
-Users install via **Options > Plugins > Install from file…** or through a marketplace index page.
+Users install via **Options > Plugins > Install from file…** or through the Marketplace (which reads `plugins.json` from this repo automatically).
 
 ---
 
