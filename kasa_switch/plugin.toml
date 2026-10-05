@@ -1,0 +1,16 @@
+# TP-Link Kasa smart-plug/power-strip plugin manifest — installed by the
+# Galileo Plugin Marketplace or via Options > Plugins > Install from file.
+#
+# Named "kasa_switch" rather than "kasa" so the installed top-level package
+# never collides with the unrelated (and far more commonly pre-installed)
+# python-kasa PyPI package, which also claims the bare "kasa" module name.
+
+name        = "kasa_switch"
+version     = "1.0.0"
+api_min     = "1"
+api_max     = "1"
+author      = "Gord Tulloch"
+description = "Control TP-Link Kasa smart plugs and power strips (e.g. HS300) as Galileo switch devices"
+tier        = "first_party"
+nav_level   = "secondary"
+entry_point = "kasa_switch"

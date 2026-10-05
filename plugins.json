@@ -1,5 +1,21 @@
 [
   {
+    "name": "generic_relay",
+    "description": "Control generic HTTP-toggled Internet relay boards as Galileo switch devices",
+    "version": "1.0.0",
+    "tier": "first_party",
+    "author": "Gord Tulloch",
+    "download_url": "https://raw.githubusercontent.com/gordtulloch/Galileo-Plugins/main/generic_relay/dist/galileo-plugin-generic_relay-1.0.0.zip"
+  },
+  {
+    "name": "kasa_switch",
+    "description": "Control TP-Link Kasa smart plugs and power strips (e.g. HS300) as Galileo switch devices",
+    "version": "1.0.0",
+    "tier": "first_party",
+    "author": "Gord Tulloch",
+    "download_url": "https://raw.githubusercontent.com/gordtulloch/Galileo-Plugins/main/kasa_switch/dist/galileo-plugin-kasa_switch-1.0.0.zip"
+  },
+  {
     "name": "vstarget",
     "description": "AAVSO variable-star target planning and photometric analysis (VST + VST-AN)",
     "version": "1.0.0",

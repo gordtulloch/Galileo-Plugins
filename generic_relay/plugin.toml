@@ -1,0 +1,17 @@
+# Generic Internet Relay plugin manifest — installed by the Galileo Plugin
+# Marketplace or via Options > Plugins > Install from file.
+#
+# Controls relay boards that expose each relay/state combination as its own
+# HTTP GET endpoint (common on cheap ESP8266/Arduino-based Ethernet relay
+# boards), via a user-configurable URL template rather than any one vendor's
+# fixed API.
+
+name        = "generic_relay"
+version     = "1.0.0"
+api_min     = "1"
+api_max     = "1"
+author      = "Gord Tulloch"
+description = "Control generic HTTP-toggled Internet relay boards as Galileo switch devices"
+tier        = "first_party"
+nav_level   = "secondary"
+entry_point = "generic_relay"

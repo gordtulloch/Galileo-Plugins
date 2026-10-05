@@ -9,6 +9,8 @@ First-party plugins for [Galileo](https://github.com/gordtulloch/Galileo), the c
 | Plugin | Description | Version |
 |--------|-------------|---------|
 | [vstarget](#vstarget) | AAVSO variable-star planning and photometric analysis | 1.0.0 |
+| [kasa_switch](#kasa_switch) | Control TP-Link Kasa smart plugs and power strips (e.g. HS300) | 1.0.0 |
+| [generic_relay](#generic_relay) | Control generic HTTP-toggled Internet relay boards | 1.0.0 |
 
 ---
 
@@ -220,6 +222,85 @@ Every test is tagged with its RTM requirement ID and priority:
 @pytest.mark.requirement("TC-VST-040")
 @pytest.mark.priority("MVP")
 def test_tc_vst_040_import_from_file(): ...
+```
+
+---
+
+## kasa_switch
+
+**TP-Link Kasa smart plug / power strip control** — registers a Galileo Switch device backend (`EQP-SW-010`) for Kasa devices (single plugs like the HS100/HS103/HS105, and multi-outlet strips like the HS300/KP303/EP40), plus a panel for driving them directly without going through Equipment > Switches.
+
+Named `kasa_switch` rather than `kasa` so the installed package never collides with the unrelated, more commonly pre-installed `python-kasa` PyPI package, which also claims the bare `kasa` module name.
+
+### What it does
+
+- **`kasa_switch.protocol`** — a minimal, dependency-free re-implementation of TP-Link's local-network wire format (length-prefixed, XOR-"encrypted" JSON over TCP 9999), following the protocol documented by [Python-KasaSmartPowerStrip](https://github.com/p-doyle/Python-KasaSmartPowerStrip).
+- **`KasaSwitchAdapter`** — one switch per outlet: a single plug reports one switch named after the device; a power strip reports one switch per `children` entry, named after each outlet's own Kasa-app alias.
+- **Kasa Switches panel** — one tab per configured device (added via the "+" button in the tab bar's corner), each a table of that device's switches with a click-to-toggle status cell and a 5-second poll. Closing a tab removes that device without affecting the others. The device list persists via `QSettings`.
+
+### Package layout
+
+```
+kasa_switch/
+├── plugin.toml
+├── pyproject.toml
+├── build_zip.py
+├── dist/
+├── kasa_switch/
+│   ├── __init__.py       KasaSwitchPlugin (PluginBase)
+│   ├── protocol.py       encrypt/decrypt + send_command (TCP 9999)
+│   ├── adapter.py        KasaSwitchAdapter, KasaOutlet
+│   ├── settings.py       KasaSettings (QSettings-backed device list)
+│   └── ui.py             build_kasa_page, AddKasaDeviceDialog
+└── tests/
+    ├── conftest.py
+    └── test_kasa.py      TC-KASA-010 … TC-KASA-040
+```
+
+### Development setup
+
+```bash
+cd Galileo-Plugins/kasa_switch
+pip install -e ".[test]"
+pytest
+```
+
+---
+
+## generic_relay
+
+**Generic HTTP Internet relay board control** — registers a Galileo Switch device backend (`EQP-SW-010`) for relay boards that toggle each relay via a plain HTTP GET rather than any structured API — the common pattern on cheap ESP8266/Arduino-based Ethernet relay boards.
+
+### What it does
+
+- **`GenericRelayAdapter`** — each relay's on/off URL is built from a user-supplied `str.format()` template with `{ip}` / `{port}` (zero-based relay index) / `{state}` (0/1) placeholders, defaulting to `http://{ip}/30000/{port}{state}`. That default reproduces the reference example exactly: relay 1 on → `http://10.0.0.101/30000/01`, relay 1 off → `http://10.0.0.101/30000/00`. A board with a different scheme is supported by editing the template, not the code.
+- **No readback assumed** — most boards in this class have no endpoint to ask "is relay 3 on?", so a switch's displayed state is the last state this adapter commanded, not a polled hardware readout.
+- **Internet Relay panel** — one tab per configured board (added via the "+" button, which prompts for host/IP, relay count, and the toggle URL template), each a table of that board's relays with a click-to-toggle status cell. No poll timer, since there is nothing to poll. The device list persists via `QSettings`.
+
+### Package layout
+
+```
+generic_relay/
+├── plugin.toml
+├── pyproject.toml
+├── build_zip.py
+├── dist/
+├── generic_relay/
+│   ├── __init__.py       GenericRelayPlugin (PluginBase)
+│   ├── adapter.py        GenericRelayAdapter, RelayOutlet, DEFAULT_URL_TEMPLATE
+│   ├── settings.py       GenericRelaySettings (QSettings-backed device list)
+│   └── ui.py             build_generic_relay_page, AddRelayDeviceDialog
+└── tests/
+    ├── conftest.py
+    └── test_generic_relay.py   TC-RELAY-010 … TC-RELAY-040
+```
+
+### Development setup
+
+```bash
+cd Galileo-Plugins/generic_relay
+pip install -e ".[test]"
+pytest
 ```
 
 ---
