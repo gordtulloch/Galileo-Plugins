@@ -4,6 +4,10 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ## [Unreleased]
 
+### Removed
+
+- **SFTP image retrieval (`VST-AN-010`) removed.** `vstarget.analysis.SftpImageRetriever` was only a re-export of Galileo's own Library SFTP adapter (`galileo.library.adapters`), which is core's to own — the plugin never had an SFTP implementation, and its analysis panel takes images from the Galileo library (`VST-AN-100`) rather than fetching them itself. The re-export module, its `paramiko` dependency and its mock-only test are gone.
+
 ### Added
 
 - **Photometry runs off the UI thread (core `NFR-PERF-020`), with progress and a Stop button.** A run used to happen in the Run Photometry slot itself, one `asyncio.run()` per frame, which froze the whole window for as long as the measuring took — minutes for a few nights of frames, with no indication it was working. `vstarget/analysis/runner.py` splits the run: `build_jobs()` resolves the selected sessions into self-contained jobs (frames, target with coordinates, filter band) and stays on the UI thread where the library and plan-store connections live, while `run_jobs()` measures with no database or Qt involvement. `PhotometryThread` wraps it in a `QThread` with one event loop for the whole batch, built lazily like the planning panel's `FetchTargetsThread` so the module imports without Qt. The panel reports "Measuring frame N of M" as it goes, disables the controls that would change the run under it, and Stop ends the run after the current frame while keeping the measurements already made. A run still going when the panel closes or the app quits is cancelled and waited for, rather than leaving a `QThread` to be destroyed mid-flight.

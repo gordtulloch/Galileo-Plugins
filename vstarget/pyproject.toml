@@ -16,7 +16,6 @@ dependencies = [
     "astroquery",
     "astroalign",
     "photutils",
-    "paramiko",
     "pandas",
     "matplotlib",
     "numpy",

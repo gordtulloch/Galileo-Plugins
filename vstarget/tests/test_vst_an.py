@@ -1,7 +1,7 @@
 ﻿# SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2025-2026 Gord Tulloch
 
-"""VST-AN — Variable Star Analysis & Photometry (TC-VST-AN-010 … TC-VST-AN-090)."""
+"""VST-AN — Variable Star Analysis & Photometry (TC-VST-AN-020 … TC-VST-AN-100; AN-010, FTP/SFTP retrieval, is retired)."""
 
 import pytest
 from unittest.mock import AsyncMock
@@ -11,22 +11,6 @@ from unittest.mock import AsyncMock
 def vst_analysis():
     an_mod = pytest.importorskip("vstarget.analysis")
     return an_mod.VariableStarAnalysis()
-
-
-# ---------------------------------------------------------------------------
-# TC-VST-AN-010
-# ---------------------------------------------------------------------------
-
-@pytest.mark.requirement("TC-VST-AN-010")
-@pytest.mark.priority("MVP")
-async def test_tc_vst_an_010_retrieve_fits_via_ftp_sftp(vst_analysis):
-    """VST-AN-010: Retrieve calibrated FITS images from remote-telescope server via FTP/FTPS/SFTP."""
-    an_mod = pytest.importorskip("vstarget.analysis")
-    retriever = an_mod.SftpImageRetriever.__new__(an_mod.SftpImageRetriever)
-    retriever.download = AsyncMock(return_value=["/local/cache/m42_001.fits"])
-
-    files = await retriever.download(host="remote.telescope.net", path="/data/R_Leo/", dest="/tmp/cache")
-    assert len(files) == 1
 
 
 # ---------------------------------------------------------------------------

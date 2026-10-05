@@ -141,7 +141,6 @@ VSTarget registers two independent panels inside Galileo's **Science** section:
 
 #### Analysis (`vstarget.analysis`)
 
-- **SFTP downloader** — retrieve FITS files from a remote telescope via SFTP (`VST-AN-010`).
 - **Plate solve** — solve a FITS frame using Galileo's ASTAP backend (`VST-AN-020`).
 - **Frame stacking** — mean-stack frames with `astroalign` registration; falls back to unregistered mean if alignment fails (`VST-AN-030`). CPU-bound work dispatched to Galileo's `ProcessPoolExecutor`.
 - **Aperture photometry** — ensemble differential magnitude via `photutils`, comparison stars projected through WCS (`VST-AN-040`).
@@ -178,25 +177,23 @@ vstarget/
 │       ├── platesolve.py        solve_fits (ASTAP wrapper)
 │       ├── stack.py             stack_frames (astroalign + asyncio)
 │       ├── report.py            AAVSO WebObs Extended CSV writer
-│       ├── sftp_downloader.py   SftpImageRetriever
 │       ├── transform_generator.py  compute_transformation_coefficients
 │       └── transform_apply.py   apply_transformation
 └── tests/
     ├── conftest.py              Shared fixtures (sample FITS, repo tree)
     ├── test_vst.py              TC-VST-010 … TC-VST-090
-    └── test_vst_an.py           TC-VST-AN-010 … TC-VST-AN-090
+    └── test_vst_an.py           TC-VST-AN-020 … TC-VST-AN-100
 ```
 
 ### Dependencies
 
 | Package | Purpose |
 |---------|---------|
-| `galileo` | Host app — `PluginBase`, `SchedulerJob`, `PlateSolver`, `run_cpu`, `SftpImageRetriever` |
+| `galileo` | Host app — `PluginBase`, `SchedulerJob`, `PlateSolver`, `run_cpu` |
 | `astropy` | FITS I/O, WCS projection, image normalisation |
 | `astroquery` | AAVSO Target Tool, CDS Simbad, DSS SkyView |
 | `photutils` | Aperture photometry |
 | `astroalign` | Frame registration (GIL-bound — dispatched to process pool) |
-| `paramiko` | SFTP image retrieval |
 | `numpy` | Array maths, polynomial fitting |
 | `pandas` | CSV import/export |
 | `matplotlib` | Chart rendering (finder charts, light curves) |

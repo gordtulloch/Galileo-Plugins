@@ -1,7 +1,7 @@
 ﻿# SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2025-2026 Gord Tulloch
 
-"""Full variable-star analysis service (VST-AN-010 … VST-AN-090)."""
+"""Full variable-star analysis service (VST-AN-020 … VST-AN-100)."""
 
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ from vstarget.analysis.photometry import (  # noqa: F401
     PhotometryResult,
     StandardFieldObservation,
 )
-from vstarget.analysis.sftp_downloader import SftpImageRetriever  # noqa: F401
 from vstarget.planning.models import TransformationCoefficients  # noqa: F401
 
 logger = logging.getLogger(__name__)
@@ -55,10 +54,6 @@ class VariableStarAnalysis:
         self._comparison_stars: list[dict] = []
         self._comparison_chart_id: str = "na"
         self._transformation_coefficients = None
-
-    # --- Image retrieval (VST-AN-010) ------------------------------------
-
-    # SftpImageRetriever is in vstarget.analysis.sftp_downloader
 
     # --- Comparison stars (VST-EXT-010) ----------------------------------
 
