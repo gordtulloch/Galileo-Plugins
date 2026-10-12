@@ -23,9 +23,9 @@ class FinderChartRenderer:
     ) -> bytes:
         """Return the PNG bytes of the finder chart."""
         try:
-            from astroquery.skyview import SkyView  # type: ignore[import]
             import astropy.units as u
             from astropy.coordinates import SkyCoord
+            from astroquery.skyview import SkyView  # type: ignore[import]
 
             coord = SkyCoord(ra=ra_deg, dec=dec_deg, unit="deg", frame="icrs")
             images = await asyncio.to_thread(
@@ -38,10 +38,11 @@ class FinderChartRenderer:
                 return b""
 
             # Convert FITS to PNG
-            import numpy as np
             from io import BytesIO
-            from astropy.visualization import ZScaleInterval
+
+            import numpy as np
             import PIL.Image  # type: ignore[import]
+            from astropy.visualization import ZScaleInterval
 
             data = images[0][0].data
             interval = ZScaleInterval()

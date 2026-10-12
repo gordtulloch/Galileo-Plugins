@@ -60,7 +60,11 @@ class AperturePhotometryEngine:
         """Return (flux, flux_error) for a star at pixel (*x*, *y*)."""
         try:
             import numpy as np
-            from photutils.aperture import CircularAperture, CircularAnnulus, aperture_photometry
+            from photutils.aperture import (
+                CircularAnnulus,
+                CircularAperture,
+                aperture_photometry,
+            )
 
             aperture = CircularAperture((x, y), r=self.aperture_radius)
             annulus = CircularAnnulus((x, y), r_in=self.annulus_inner, r_out=self.annulus_outer)

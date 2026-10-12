@@ -19,9 +19,10 @@ Output for each plugin:
 
 import json
 import sys
-import tomllib
 import zipfile
 from pathlib import Path
+
+import tomllib
 
 REPO_ROOT = Path(__file__).parent
 GITHUB_RAW_BASE = (

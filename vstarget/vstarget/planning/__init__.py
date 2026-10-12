@@ -4,7 +4,7 @@
 """vstarget.planning package."""
 
 from vstarget.planning.aavso_client import AavsoTargetToolClient
-from vstarget.planning.vsp_client import AavsoVspClient, ComparisonStarChart
+from vstarget.planning.database import PlanStore
 from vstarget.planning.models import (
     SECTION_CODES,
     SECTION_NAMES,
@@ -17,11 +17,14 @@ from vstarget.planning.models import (
     TransformationCoefficients,
 )
 from vstarget.planning.planner import VariableStarPlanner
-from vstarget.planning.simbad_client import SimbadClient
-from vstarget.planning.database import PlanStore
 from vstarget.planning.script_exporter import export_acp_script
+from vstarget.planning.simbad_client import SimbadClient
+from vstarget.planning.vsp_client import AavsoVspClient, ComparisonStarChart
 
 __all__ = [
+    "SECTION_CODES",
+    "SECTION_NAMES",
+    "TELESCOPE_PRESETS",
     "AAVSOTarget",
     "AavsoTarget",
     "AavsoTargetToolClient",
@@ -31,10 +34,7 @@ __all__ = [
     "ObservationPlan",
     "ObservingTarget",
     "PlanStore",
-    "SECTION_CODES",
-    "SECTION_NAMES",
     "SimbadClient",
-    "TELESCOPE_PRESETS",
     "TransformationCoefficients",
     "VariableStarPlanner",
     "export_acp_script",

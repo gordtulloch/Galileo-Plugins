@@ -135,6 +135,7 @@ class VariableStarAnalysis:
             )
 
             import datetime
+
             from astropy.time import Time
             jd = float(Time(hdr.get("DATE-OBS", "2026-01-01"), format="isot").jd)
 
@@ -163,7 +164,9 @@ class VariableStarAnalysis:
     # --- Transformation coefficients (VST-AN-060, VST-AN-070) ----------
 
     async def compute_transformation_coefficients(self, observations: list):
-        from vstarget.analysis.transform_generator import compute_transformation_coefficients
+        from vstarget.analysis.transform_generator import (
+            compute_transformation_coefficients,
+        )
         return compute_transformation_coefficients(observations)
 
     def apply_transformation(self, results):

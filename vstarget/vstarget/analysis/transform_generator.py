@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from vstarget.planning.models import TransformationCoefficients
     from vstarget.analysis.photometry import StandardFieldObservation
+    from vstarget.planning.models import TransformationCoefficients
 
 
 def compute_transformation_coefficients(

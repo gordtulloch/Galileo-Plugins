@@ -9,6 +9,7 @@ Installed via Options > Plugins; discovered by Galileo's plugin loader at startu
 from __future__ import annotations
 
 from galileo.plugins import PluginBase
+
 from vstarget.analysis import VariableStarAnalysis
 from vstarget.analysis.exposure import ExposureTimeCalculator
 from vstarget.analysis.finder_chart import FinderChartRenderer

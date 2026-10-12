@@ -37,7 +37,7 @@ class PlanDatabase:
         self._path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
     def load(self) -> list[ObservationPlan]:
-        from vstarget.planning.models import ObservationPlan, FilterConfig
+        from vstarget.planning.models import FilterConfig, ObservationPlan
         if not self._path.exists():
             return []
         try:

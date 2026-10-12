@@ -27,15 +27,27 @@ def build_vst_analysis_page() -> object:
     where the frames are, which filter each session used, and whether it has
     been calibrated.
     """
-    from PySide6.QtWidgets import (
-        QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-        QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
-        QGroupBox, QFileDialog, QFormLayout, QComboBox,
-        QTreeWidget, QTreeWidgetItem, QHeaderView, QAbstractItemView,
-        QApplication,
-    )
     from PySide6.QtCore import QEvent, QObject, Qt
     from PySide6.QtGui import QDoubleValidator
+    from PySide6.QtWidgets import (
+        QAbstractItemView,
+        QApplication,
+        QComboBox,
+        QFileDialog,
+        QFormLayout,
+        QGroupBox,
+        QHBoxLayout,
+        QHeaderView,
+        QLabel,
+        QLineEdit,
+        QPushButton,
+        QTableWidget,
+        QTableWidgetItem,
+        QTreeWidget,
+        QTreeWidgetItem,
+        QVBoxLayout,
+        QWidget,
+    )
 
     page = QWidget()
     page.setObjectName("VSTAnalysisPage")

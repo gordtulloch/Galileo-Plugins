@@ -7,8 +7,9 @@ VST-EXT-010 is this plugin's own external-interface requirement (docs/plugins/vs
 Section 1.3's plugin-local `EXT` sub-prefix), relocated here from core's former EXT-100.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 
 @pytest.fixture

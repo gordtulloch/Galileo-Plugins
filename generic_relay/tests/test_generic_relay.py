@@ -5,7 +5,7 @@
 
 import pytest
 
-from generic_relay.adapter import DEFAULT_URL_TEMPLATE, GenericRelayAdapter
+from generic_relay.adapter import GenericRelayAdapter
 
 
 class _FakeResponse:

@@ -45,7 +45,6 @@ import logging
 from dataclasses import dataclass
 
 import requests
-
 from galileo.core.capabilities import DeviceCapabilities
 from galileo.core.devices import DeviceBackend, DeviceCategory
 

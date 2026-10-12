@@ -3,8 +3,9 @@
 
 """VST-AN — Variable Star Analysis & Photometry (TC-VST-AN-020 … TC-VST-AN-100; AN-010, FTP/SFTP retrieval, is retired)."""
 
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 
 @pytest.fixture

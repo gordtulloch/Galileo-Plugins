@@ -3,7 +3,6 @@
 
 """Shared fixtures for the generic_relay plugin test suite."""
 
-import pytest
 
 
 def pytest_configure(config):

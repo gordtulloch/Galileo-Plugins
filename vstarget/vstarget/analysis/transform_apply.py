@@ -38,7 +38,9 @@ def apply_transformation(
     unchanged, with ``is_transformed`` left ``False`` rather than claiming a correction that was
     never actually computed.
     """
-    from vstarget.analysis.photometry import PhotometryResult  # noqa: F401 (for typing clarity)
+    from vstarget.analysis.photometry import (
+        PhotometryResult,  # noqa: F401 (for typing clarity)
+    )
 
     by_filter = {r.filter_band: r for r in results}
     corrected: dict[str, PhotometryResult] = {}

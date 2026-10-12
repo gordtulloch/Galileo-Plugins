@@ -69,6 +69,7 @@ class VariableStarPlanner:
     def import_from_file(self, path: Path | str) -> None:
         """Load targets from a delimited text file (VST-040)."""
         import csv
+
         from vstarget.planning.models import AavsoTarget
         with open(path, newline="", encoding="utf-8") as fh:
             reader = csv.DictReader(fh)

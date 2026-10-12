@@ -87,6 +87,7 @@ class AAVSOClient:
         targets visible from the given site during the next nighttime period.
         """
         import requests
+
         from vstarget.planning.models import AAVSOTarget
 
         params: dict = {"obs_section": sections or ["ac"]}

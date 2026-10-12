@@ -11,7 +11,6 @@ import pytest
 from kasa_switch import protocol
 from kasa_switch.adapter import KasaSwitchAdapter
 
-
 # ---------------------------------------------------------------------------
 # TC-KASA-010 — wire protocol
 # ---------------------------------------------------------------------------
