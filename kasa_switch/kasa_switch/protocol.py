@@ -75,6 +75,38 @@ def send_command(
     return json.loads(decrypt(body))
 
 
+def discover(*, port: int = _DEFAULT_PORT, timeout: float = 3.0) -> list[tuple[str, dict[str, Any]]]:
+    """Find Kasa devices on the local network by UDP broadcast.
+
+    Broadcasts a ``get_sysinfo`` request (the same obfuscation as the TCP
+    protocol but without the length prefix) and collects replies until
+    *timeout* seconds have passed. Returns ``(host, sysinfo)`` pairs, one per
+    responding device.
+    """
+    import time
+
+    request = encrypt(json.dumps({"system": {"get_sysinfo": {}}}))[4:]
+    found: dict[str, dict[str, Any]] = {}
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.bind(("", 0))
+        sock.sendto(request, ("255.255.255.255", port))
+        deadline = time.monotonic() + timeout
+        while (remaining := deadline - time.monotonic()) > 0:
+            sock.settimeout(remaining)
+            try:
+                data, (host, _port) = sock.recvfrom(4096)
+            except (socket.timeout, OSError):
+                break
+            try:
+                info = json.loads(decrypt(data)).get("system", {}).get("get_sysinfo", {})
+            except (ValueError, UnicodeDecodeError):
+                continue
+            if info:
+                found[host] = info
+    return list(found.items())
+
+
 def _recv_exact(sock: socket.socket, n: int) -> bytes:
     """Read exactly *n* bytes from *sock*, raising if the peer closes early."""
     chunks = bytearray()

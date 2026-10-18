@@ -21,7 +21,8 @@ class KasaSwitchPlugin(PluginBase):
     name = "KasaSwitchPlugin"
     version = "1.0.0"
     api_version = "1"
-    panel_level = "secondary"
+    # Shown on Galileo's Equipment > Switches page, not as a Science panel.
+    panel_level = "equipment:switch"
     panel_label = "Kasa Switches"
 
     def activate(self, ctx) -> None:

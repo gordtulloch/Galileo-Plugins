@@ -348,7 +348,7 @@ class MyPlugin(PluginBase):
     panel_label = "My Plugin"   # nav button label
 
     def activate(self, ctx: PluginContext) -> None:
-        # Optional: register a device backend or sequencer instruction type.
+        # Optional: register a device backend or session block type.
         # ctx.register_device_backend(category, MyAdapterClass)
         # ctx.register_instruction_type(MyInstructionClass)
         pass
@@ -369,7 +369,7 @@ class MyPlugin(PluginBase):
 | Method | Purpose |
 |--------|---------|
 | `ctx.register_device_backend(category, cls)` | Add a new device adapter for a `DeviceCategory` (`PLUG-010`, `ARCH-070`) |
-| `ctx.register_instruction_type(cls)` | Register a new `SequencerNode` instruction type (`PLUG-020`) |
+| `ctx.register_instruction_type(cls)` | Register a new session block type (`PLUG-020`) — any class with an async `execute(context)` |
 | `ctx.get_service(name)` | Retrieve a named core service granted to this plugin at load time |
 
 ### 5. Nav levels

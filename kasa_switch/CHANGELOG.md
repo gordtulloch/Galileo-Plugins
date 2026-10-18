@@ -4,6 +4,10 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+
+- **Kasa controls moved from Science to Equipment > Switches** (`panel_level = "equipment:switch"`; needs a Galileo that supports equipment panels). The tabbed per-device table is replaced by a **Scan for KASA switches** button (UDP broadcast discovery, new `protocol.discover`) and, for each device found, a box listing its outlets with **On** / **Off** buttons. **Add by IP…** remains for devices the broadcast can't reach. Network I/O now runs off the UI thread, so an unreachable device no longer freezes the app.
+
 ### Added
 
 - **Initial release.** `kasa_switch.protocol` re-implements the TP-Link Kasa local-network wire format (length-prefixed, XOR-"encrypted" JSON over TCP 9999) directly against the standard library, following the protocol documented by [Python-KasaSmartPowerStrip](https://github.com/p-doyle/Python-KasaSmartPowerStrip), rather than depending on the third-party `python-kasa` package — partly to keep the dependency footprint to just `galileo`, and partly to avoid a module-name collision, since that package also claims the top-level `kasa` name (hence this plugin is named `kasa_switch`, not `kasa`).
