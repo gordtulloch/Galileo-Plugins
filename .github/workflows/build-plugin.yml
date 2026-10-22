@@ -9,12 +9,13 @@ on:
       - "*/**/*.py"
       - "*/**/help/*.md"
       - "build_plugins.py"
+      - ".github/workflows/build-plugin.yml"
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # needed to commit the built artifacts back
+      contents: write   # create releases and commit plugins.json
 
     steps:
       - uses: actions/checkout@v4
@@ -28,9 +29,29 @@ jobs:
       - name: Build all plugin ZIPs and update plugins.json
         run: python build_plugins.py
 
-      - name: Commit artifacts
+      # ZIPs are not committed (they made every merge conflict); each plugin
+      # version gets a release "<name>-v<version>" holding its ZIP, which is
+      # what plugins.json's download_url points at. Re-running for an
+      # unchanged version replaces the asset.
+      - name: Publish ZIPs as release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for zip in */dist/galileo-plugin-*.zip; do
+            name=$(basename "$zip" .zip)
+            name=${name#galileo-plugin-}
+            version=${name##*-}
+            plugin=${name%-*}
+            tag="${plugin}-v${version}"
+            if gh release view "$tag" >/dev/null 2>&1; then
+              gh release upload "$tag" "$zip" --clobber
+            else
+              gh release create "$tag" "$zip" --title "$plugin $version"                 --notes "Galileo plugin $plugin $version. Installed from the Galileo plugin Marketplace."
+            fi
+          done
+
+      - name: Commit plugins.json
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "ci: rebuild plugin ZIPs and update plugins.json [skip ci]"
-          # Picks up the new/updated ZIP for every plugin and the shared index.
-          file_pattern: "*/dist/*.zip plugins.json"
+          commit_message: "ci: update plugins.json [skip ci]"
+          file_pattern: "plugins.json"

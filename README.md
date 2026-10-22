@@ -25,7 +25,8 @@ push to main
 GitHub Actions (build-plugin.yml)
   runs build_plugins.py
      │
-     ├─ builds  <plugin>/dist/galileo-plugin-<name>-<version>.zip
+     ├─ builds  <plugin>/dist/galileo-plugin-<name>-<version>.zip  (not committed)
+     ├─ uploads each ZIP to the GitHub release  <name>-v<version>
      └─ updates plugins.json  ◄── served from raw.githubusercontent.com
                                         │
                                         ▼
@@ -48,7 +49,7 @@ Galileo-Plugins/
     ├── plugin.toml         Galileo manifest (name, version, API range, entry_point)
     ├── pyproject.toml      Python package metadata and dependencies
     ├── build_zip.py        Convenience shim → delegates to ../build_plugins.py
-    ├── dist/               Built ZIPs (committed by CI; do not edit by hand)
+    ├── dist/               Built ZIPs (git-ignored; built locally or by CI, published as release assets)
     ├── vstarget/           Python package (same name as the plugin)
     └── tests/
 ```
@@ -65,7 +66,7 @@ Galileo-Plugins/
 
 ### From a local ZIP file
 
-1. Download the ZIP from [`vstarget/dist/`](vstarget/dist/) or build it locally (see below).
+1. Download the ZIP from the plugin's [GitHub release](https://github.com/gordtulloch/Galileo-Plugins/releases) (e.g. `vstarget-v1.0.0`) or build it locally (see below).
 2. In Galileo go to **Options > Plugins > Installed** and click **Install from file…**
 3. Select the ZIP. Restart Galileo.
 
@@ -92,7 +93,7 @@ The workflow in [`.github/workflows/build-plugin.yml`](.github/workflows/build-p
 python build_plugins.py
 ```
 
-then commits the updated ZIPs and `plugins.json` back to the branch with the message `ci: rebuild plugin ZIPs and update plugins.json [skip ci]`.
+then uploads each ZIP to a GitHub release tagged `<name>-v<version>` (replacing the asset if that version already exists) and commits the updated `plugins.json` back to the branch with the message `ci: update plugins.json [skip ci]`. ZIPs are never committed, so local builds can't conflict with CI.
 
 ### Locally
 
@@ -107,7 +108,7 @@ python build_plugins.py vstarget
 python vstarget/build_zip.py
 ```
 
-Output ZIPs land in `<plugin>/dist/`. `plugins.json` is updated at the repo root. Commit and push both — the Marketplace picks up the new version immediately.
+Output ZIPs land in `<plugin>/dist/` (git-ignored — use them for **Install from file…**). `plugins.json` is updated at the repo root; commit it with your source change and push — CI publishes the ZIP as a release asset and the Marketplace picks up the new version.
 
 ### How `build_plugins.py` works
 
@@ -161,7 +162,7 @@ vstarget/
 ├── plugin.toml                  Galileo plugin manifest
 ├── pyproject.toml               Build metadata and dependencies
 ├── build_zip.py                 Shim → ../build_plugins.py vstarget
-├── dist/                        Built ZIPs (committed by CI)
+├── dist/                        Built ZIPs (git-ignored)
 ├── vstarget/
 │   ├── __init__.py              VSTPlugin + VSTAnalysisPlugin (PluginBase subclasses)
 │   ├── ui.py                    Qt panel widgets (build_vst_page, build_vst_analysis_page)
@@ -477,7 +478,7 @@ Further optional hooks on `PluginBase`:
 
 ### 6. CI and distribution
 
-Push your new `myplugin/` directory to `main`. The CI pipeline detects the new `plugin.toml`, builds `myplugin/dist/galileo-plugin-myplugin-1.0.0.zip`, adds an entry to `plugins.json`, and commits both back. The plugin then appears in Galileo's Marketplace for all users.
+Push your new `myplugin/` directory to `main`. The CI pipeline detects the new `plugin.toml`, builds `myplugin/dist/galileo-plugin-myplugin-1.0.0.zip`, publishes it as the `myplugin-v1.0.0` release asset, adds an entry to `plugins.json`, and commits that back. The plugin then appears in Galileo's Marketplace for all users.
 
 To build locally before pushing:
 
@@ -500,7 +501,7 @@ The index is a JSON array. Each entry:
   "version": "1.0.0",
   "tier": "first_party",
   "author": "Gord Tulloch",
-  "download_url": "https://raw.githubusercontent.com/gordtulloch/Galileo-Plugins/main/vstarget/dist/galileo-plugin-vstarget-1.0.0.zip"
+  "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/vstarget-v1.0.0/galileo-plugin-vstarget-1.0.0.zip"
 }
 ```
 

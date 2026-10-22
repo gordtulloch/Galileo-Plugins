@@ -1,0 +1,7 @@
+# Built plugin ZIPs are release assets, not source (CI uploads them to GitHub releases)
+*/dist/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

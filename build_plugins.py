@@ -14,7 +14,7 @@ Usage:
 Output for each plugin:
     <plugin_dir>/dist/galileo-plugin-<name>-<version>.zip
 
-``plugins.json`` is written to the repo root and served via raw.githubusercontent.com.
+``plugins.json`` is written to the repo root and served via raw.githubusercontent.com; each entry's download_url points at the plugin's GitHub release asset.
 """
 
 import json
@@ -25,9 +25,7 @@ from pathlib import Path
 import tomllib
 
 REPO_ROOT = Path(__file__).parent
-GITHUB_RAW_BASE = (
-    "https://raw.githubusercontent.com/gordtulloch/Galileo-Plugins/main"
-)
+GITHUB_REPO_URL = "https://github.com/gordtulloch/Galileo-Plugins"
 
 
 def _find_plugin_dirs() -> list[Path]:
@@ -94,14 +92,18 @@ def build_one(plugin_dir: Path) -> Path | None:
 
 def update_index(zip_dest: Path, manifest: dict) -> None:
     """Add or replace this plugin's entry in plugins.json."""
-    zip_rel = zip_dest.relative_to(REPO_ROOT).as_posix()
     new_entry = {
         "name": manifest["name"],
         "description": manifest.get("description", ""),
         "version": manifest["version"],
         "tier": manifest.get("tier", "first_party"),
         "author": manifest.get("author", ""),
-        "download_url": f"{GITHUB_RAW_BASE}/{zip_rel}",
+        # ZIPs are not committed; CI uploads each to a GitHub release tagged
+        # "<name>-v<version>" (see .github/workflows/build-plugin.yml).
+        "download_url": (
+            f"{GITHUB_REPO_URL}/releases/download/"
+            f"{manifest['name']}-v{manifest['version']}/{zip_dest.name}"
+        ),
     }
 
     index_path = REPO_ROOT / "plugins.json"
