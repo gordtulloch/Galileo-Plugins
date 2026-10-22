@@ -31,7 +31,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
-    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -213,14 +212,11 @@ def build_kasa_page() -> QWidget:
     button_row.addWidget(status, 1)
     layout.addLayout(button_row)
 
-    container = QWidget()
-    boxes_layout = QVBoxLayout(container)
+    # No scroll area of its own: every device box shows at full height from the
+    # top of the page, and the host page scrolls the whole switch area.
+    boxes_layout = QVBoxLayout()
     boxes_layout.setContentsMargins(0, 0, 0, 0)
-    boxes_layout.addStretch(1)
-    scroll = QScrollArea()
-    scroll.setWidgetResizable(True)
-    scroll.setWidget(container)
-    layout.addWidget(scroll, 1)
+    layout.addLayout(boxes_layout)
 
     settings = KasaSettings()
     boxes: dict[str, _DeviceBox] = {}
@@ -231,7 +227,7 @@ def build_kasa_page() -> QWidget:
         box = _DeviceBox(host, label)
         box.removed.connect(_remove_box)
         boxes[host] = box
-        boxes_layout.insertWidget(boxes_layout.count() - 1, box)
+        boxes_layout.addWidget(box)
 
     def _remove_box(host: str) -> None:
         box = boxes.pop(host, None)
@@ -252,7 +248,8 @@ def build_kasa_page() -> QWidget:
             new += 1
         status.setText(
             f"Found {len(found)} Kasa device(s), {new} new." if found
-            else "No Kasa devices answered. Check they are on this network, or use Add by IP…"
+            else "No Kasa devices answered. Check they are on this network and that "
+            "Third-Party Compatibility is on in the Kasa app, or use Add by IP…"
         )
 
     def _on_scan_failed(exc: Exception) -> None:

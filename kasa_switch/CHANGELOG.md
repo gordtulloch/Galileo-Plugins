@@ -6,10 +6,12 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ### Fixed
 
-- **Scan for KASA switches missed devices that were on the network.** `protocol.discover` sent one broadcast from an unbound socket, which only leaves via the default-route interface — on machines with several adapters (VPN, WSL/Hyper-V, Wi-Fi + Ethernet) the one carrying the Kasa devices was never tried. It now broadcasts from every local IPv4 interface, to both `255.255.255.255` and that interface's /24 broadcast, twice each. Devices on newer KLAP/AES firmware don't answer the legacy port-9999 protocol at all and still need to be added by IP (and may not work).
+- **Scan for KASA switches missed devices that were on the network.** `protocol.discover` sent one broadcast from an unbound socket, which only leaves via the default-route interface — on machines with several adapters (VPN, WSL/Hyper-V, Wi-Fi + Ethernet) the one carrying the Kasa devices was never tried. It now broadcasts from every local IPv4 interface, to both `255.255.255.255` and that interface's /24 broadcast, twice each. Newer firmware also ships with **Third-Party Compatibility** off in the Kasa app (Device Settings), which refuses local connections entirely — turn it on. Devices on KLAP/AES firmware don't answer the legacy port-9999 protocol at all and still need to be added by IP (and may not work).
 
 ### Changed
 
+- **The "No Kasa devices answered" scan message now mentions Third-Party Compatibility**, the usual reason a device on the network is invisible.
+- **The Kasa panel no longer has its own scroll area.** Each device box shows at full height from the top of the page, and the host Equipment page scrolls the whole switch area (needs the matching Galileo change).
 - **Kasa controls moved from Science to Equipment > Switches** (`panel_level = "equipment:switch"`; needs a Galileo that supports equipment panels). The tabbed per-device table is replaced by a **Scan for KASA switches** button (UDP broadcast discovery, new `protocol.discover`) and, for each device found, a box listing its outlets with **On** / **Off** buttons. **Add by IP…** remains for devices the broadcast can't reach. Network I/O now runs off the UI thread, so an unreachable device no longer freezes the app.
 
 ### Added

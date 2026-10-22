@@ -232,6 +232,8 @@ def test_tc_vst_040_import_from_file(): ...
 
 **TP-Link Kasa smart plug / power strip control** — registers a Galileo Switch device backend (`EQP-SW-010`) for Kasa devices (single plugs like the HS100/HS103/HS105, and multi-outlet strips like the HS300/KP303/EP40), plus a panel for driving them directly without going through Equipment > Switches.
 
+**Note — Third-Party Compatibility:** newer Kasa firmware ships with local control off, so the device works in the Kasa app but is unreachable from Galileo (scan finds nothing, Add by IP shows *Unreachable*, TCP 9999 refused). In the Kasa app, open the device's settings and turn on **Third-Party Compatibility**.
+
 Named `kasa_switch` rather than `kasa` so the installed package never collides with the unrelated, more commonly pre-installed `python-kasa` PyPI package, which also claims the bare `kasa` module name.
 
 ### What it does
