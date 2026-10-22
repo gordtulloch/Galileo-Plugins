@@ -16,6 +16,14 @@
     "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/generic_relay-v1.0.0/galileo-plugin-generic_relay-1.0.0.zip"
   },
   {
+    "name": "kasa_switch",
+    "description": "Control TP-Link Kasa smart plugs and power strips (e.g. HS300) as Galileo switch devices",
+    "version": "1.0.0",
+    "tier": "first_party",
+    "author": "Gord Tulloch",
+    "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/kasa_switch-v1.0.0/galileo-plugin-kasa_switch-1.0.0.zip"
+  },
+  {
     "name": "switchbot_bot",
     "description": "Control SwitchBot Bot devices over Bluetooth LE (e.g. to power a Seestar on and off) as Galileo switch devices",
     "version": "1.0.0",
@@ -30,13 +38,5 @@
     "tier": "first_party",
     "author": "Gord Tulloch",
     "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/vstarget-v1.0.0/galileo-plugin-vstarget-1.0.0.zip"
-  },
-  {
-    "name": "kasa_switch",
-    "description": "Control TP-Link Kasa smart plugs and power strips (e.g. HS300) as Galileo switch devices",
-    "version": "1.0.0",
-    "tier": "first_party",
-    "author": "Gord Tulloch",
-    "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/kasa_switch-v1.0.0/galileo-plugin-kasa_switch-1.0.0.zip"
   }
 ]
