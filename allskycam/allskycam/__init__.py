@@ -42,6 +42,7 @@ class AllSkyCamPlugin(PluginBase):
     panel_level = "top"
     panel_label = "AllSkyCam"
     dock_label = "AllSkyCam"
+    options_label = "AllSkyCam"
 
     def __init__(self) -> None:
         self._ctx: Any = None
@@ -88,6 +89,13 @@ class AllSkyCamPlugin(PluginBase):
         self._ctx.set_dock_visible(self._service.config.show_dock)
 
     # --- views ---------------------------------------------------------------------------
+
+    def build_options_page(self):
+        service = self._ensure_service()
+        if service is None:
+            return None
+        from allskycam.ui import SettingsPage
+        return SettingsPage(service)
 
     def build_page(self):
         service = self._ensure_service()

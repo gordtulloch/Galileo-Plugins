@@ -1,6 +1,6 @@
 # AllSkyCam
 
-Shows the newest image from an indi-allsky all-sky camera on your network, as a still picture and as an animation of the last few images. The page has three tabs: **Latest**, **Animation** and **Settings**. Galileo keeps fetching in the background, so the animation fills up while you work elsewhere.
+Shows the newest image from an indi-allsky all-sky camera on your network, as a still picture and as an animation of the last few images. The page has two tabs, **Latest** and **Animation**; the options are under **Options > AllSkyCam**. Galileo keeps fetching in the background, so the animation fills up while you work elsewhere.
 
 ## Fetch now
 

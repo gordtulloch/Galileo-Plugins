@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2025-2026 Gord Tulloch
 
-"""AllSkyCam views (ASC-050 … ASC-090): the sidebar page (Latest / Animation / Settings tabs) and the
+"""AllSkyCam views (ASC-050 … ASC-090): the sidebar page (Latest / Animation tabs) and the
 compact dock pane. Both read from the one :class:`allskycam.service.AllSkyService`."""
 
 from __future__ import annotations
@@ -307,8 +307,21 @@ class SettingsForm(QWidget):
         self._say("Saved.", True)
 
 
+class SettingsPage(QWidget):
+    """The plugin's page under Options (ASC-040): a heading over the :class:`SettingsForm`."""
+
+    def __init__(self, service: AllSkyService) -> None:
+        super().__init__()
+        layout = QVBoxLayout(self)
+        heading = QLabel("AllSkyCam")
+        heading.setObjectName("SectionHeading")
+        self.form = SettingsForm(service)
+        layout.addWidget(heading)
+        layout.addWidget(self.form, 1)
+
+
 class AllSkyCamPage(QWidget):
-    """The sidebar page: status line, Fetch now, and the Latest / Animation / Settings tabs."""
+    """The sidebar page: status line, Fetch now, and the Latest / Animation tabs. The options live under Options (ASC-040)."""
 
     def __init__(self, service: AllSkyService) -> None:
         super().__init__()
@@ -326,16 +339,12 @@ class AllSkyCamPage(QWidget):
         self.tabs = QTabWidget()
         self.latest = LatestView(service)
         self.animation = AnimationView(service)
-        self.settings = SettingsForm(service)
         self.tabs.addTab(self.latest, "Latest")
         self.tabs.addTab(self.animation, "Animation")
-        self.tabs.addTab(self.settings, "Settings")
         layout.addWidget(self.tabs, 1)
 
         self.fetch_btn.clicked.connect(service.fetch_now)
         service.status_changed.connect(self.status.setText)
-        if not service.config.configured:
-            self.tabs.setCurrentWidget(self.settings)
 
 
 class DockPane(QWidget):

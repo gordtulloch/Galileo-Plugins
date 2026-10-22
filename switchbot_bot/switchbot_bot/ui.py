@@ -30,7 +30,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
-    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -201,14 +200,11 @@ def build_switchbot_page() -> QWidget:
     button_row.addWidget(status, 1)
     layout.addLayout(button_row)
 
-    container = QWidget()
-    boxes_layout = QVBoxLayout(container)
+    # No scroll area of its own: every Bot box shows at full height, and the
+    # host page scrolls the whole switch area.
+    boxes_layout = QVBoxLayout()
     boxes_layout.setContentsMargins(0, 0, 0, 0)
-    boxes_layout.addStretch(1)
-    scroll = QScrollArea()
-    scroll.setWidgetResizable(True)
-    scroll.setWidget(container)
-    layout.addWidget(scroll, 1)
+    layout.addLayout(boxes_layout)
 
     settings = SwitchBotSettings()
     boxes: dict[str, _BotBox] = {}
@@ -219,7 +215,7 @@ def build_switchbot_page() -> QWidget:
         box = _BotBox(address, label, password)
         box.removed.connect(_remove_box)
         boxes[address] = box
-        boxes_layout.insertWidget(boxes_layout.count() - 1, box)
+        boxes_layout.addWidget(box)
 
     def _remove_box(address: str) -> None:
         box = boxes.pop(address, None)

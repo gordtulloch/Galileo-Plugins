@@ -4,6 +4,10 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+
+- **The SwitchBot panel no longer has its own scroll area.** Each Bot box shows at full height, and the host Equipment page scrolls the whole switch area (needs the matching Galileo change).
+
 ### Added
 
 - **Initial release.** Controls SwitchBot Bot devices over Bluetooth LE as Galileo Switch devices (`EQP-SW-010`), mainly to power a ZWO Seestar on and off with a Bot over its power button.

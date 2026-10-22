@@ -473,7 +473,7 @@ def test_tc_asc_020_unconfigured_service_does_not_fetch(qapp):
     svc.start()
     svc.fetch_now()
     qapp.processEvents()
-    assert svc.calls == [] and "Settings" in svc.status
+    assert svc.calls == [] and "Options" in svc.status
     svc.stop()
 
 
@@ -599,7 +599,7 @@ def test_tc_asc_060_animation_handles_zero_and_one_frame(qapp):
 @pytest.mark.requirement("TC-ASC-060")
 @pytest.mark.priority("MVP")
 def test_tc_asc_060_animation_speed_follows_the_option(qapp):
-    """ASC-060: changing the animation speed in Settings retimes a running animation."""
+    """ASC-060: changing the animation speed in Options retimes a running animation."""
     from allskycam.ui import AnimationView
     svc = _service(qapp, [], fps=4.0)
     view = AnimationView(svc)
@@ -781,9 +781,10 @@ def test_tc_asc_090_plugin_help_covers_every_control_on_the_page(qapp):
     p = AllSkyCamPlugin()
     p.activate(FakeContext())
     try:
-        page = tag_help_screen(p.build_page(), "plugin.AllSkyCamPlugin")
-        assert help_content.load("plugin.AllSkyCamPlugin") is not None
-        assert audit(page) == []
+        for built in (p.build_page(), p.build_options_page()):
+            page = tag_help_screen(built, "plugin.AllSkyCamPlugin")
+            assert help_content.load("plugin.AllSkyCamPlugin") is not None
+            assert audit(page) == []
     finally:
         p.deactivate()
 

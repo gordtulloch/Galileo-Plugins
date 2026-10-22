@@ -103,7 +103,7 @@ class AllSkyService(QObject):
 
     def _idle_status(self) -> str:
         if not self._config.configured:
-            return "Not configured — enter your indi-allsky address on the Settings tab."
+            return "Not configured — enter your indi-allsky address under Options > AllSkyCam."
         return "Waiting for the first image…"
 
     # --- lifecycle -----------------------------------------------------------------------
