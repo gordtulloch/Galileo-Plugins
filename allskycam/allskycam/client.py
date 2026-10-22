@@ -8,6 +8,9 @@ newest processed image of a camera (``?camera_id=N``, default: the latest camera
 redirect is the whole protocol. The redirect target is a timestamped file name, so it doubles as
 a cheap "is this new?" check: when it matches the previous fetch the body is never downloaded.
 
+TLS certificates are deliberately not verified: indi-allsky installs normally use a self-signed
+certificate, and the connection is to the user's own camera on their own network.
+
 Unauthenticated access only. If the indi-allsky install has ``AUTH_ALL_VIEWS`` on, the redirect
 lands on its login page and :class:`AllSkyError` says so.
 """
@@ -89,13 +92,15 @@ class AllSkyClient:
         page instead of an image, an oversized or non-image response.
         """
         import requests
+        import urllib3
 
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         session = self._session or requests
         url = self.url
         response = None
         try:
             for _hop in range(_MAX_REDIRECTS + 1):
-                response = session.get(url, timeout=self.timeout, stream=True, allow_redirects=False)
+                response = session.get(url, timeout=self.timeout, stream=True, allow_redirects=False, verify=False)
                 location = response.headers.get("Location") if 300 <= response.status_code < 400 else None
                 if not location:
                     break

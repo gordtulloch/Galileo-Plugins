@@ -115,6 +115,15 @@ def test_tc_asc_010_latest_url_uses_latestimage_and_optional_camera():
 
 @pytest.mark.requirement("TC-ASC-010")
 @pytest.mark.priority("MVP")
+def test_tc_asc_010_tls_certificates_are_not_verified_for_self_signed_servers():
+    """ASC-010: indi-allsky usually uses a self-signed certificate, so every request skips verification."""
+    latest = "https://h/latestimage"
+    image = "https://h/img.jpg"
+    session = FakeSession(routes=_wire(latest, image))
+    AllSkyClient("https://h", session=session).fetch_latest()
+    assert session.calls and all(kw.get("verify") is False for _u, kw in session.calls)
+
+
 def test_tc_asc_010_fetch_follows_the_redirect_and_returns_the_image_bytes():
     """ASC-010: the image behind /latestimage's redirect is downloaded and returned with its final URL."""
     image = "http://h/indi-allsky/images/2026/img_001.jpg"

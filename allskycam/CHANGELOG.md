@@ -6,6 +6,7 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ### Added
 
+- **Self-signed HTTPS certificates are accepted.** indi-allsky installs normally serve a self-signed certificate, so TLS verification is deliberately off for the connection to the configured server (and its warning silenced).
 - **Initial release.** Shows the newest image from an indi-allsky all-sky camera in its own top-level Galileo sidebar section (`panel_level = "top"`, custom lens-and-horizon icon) and in an optional dockable animation pane.
 - **No indi-allsky changes needed.** indi-allsky has no REST API, but its existing `/latestimage` route 302-redirects to the newest processed image of a camera (`?camera_id=N`). `AllSkyClient` follows that redirect by hand, so an image whose address is unchanged since the last check is skipped without being downloaded; failures (unreachable server, HTTP error, a login page, a non-image or oversized response) become readable messages in the status line rather than exceptions.
 - **Latest / Animation / Settings tabs.** *Latest* shows the image as downloaded with its fetch time; *Animation* loops the last *n* images at a chosen speed (the timer runs only while the view is visible); *Settings* holds the options below.
