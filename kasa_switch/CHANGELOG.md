@@ -10,6 +10,7 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ### Changed
 
+- **Distribution ZIP is now a GitHub release asset, not a committed file.** The built ZIP (`kasa_switch/dist/`) is git-ignored; CI uploads it to the `kasa_switch-v<version>` release and `plugins.json`'s `download_url` points there. Committed ZIPs conflicted on every merge between a local build and CI's rebuild. No plugin code changed; install from the Marketplace or a downloaded release ZIP as before.
 - **Every Kasa action is now written to the log** (so it shows in the Equipment page's log tail): outlet On/Off, scan start/finish, device added/removed, and a device becoming reachable or unreachable (logged once per change, not on every 5-second poll). Each outlet row also now shows its state as coloured **ON** / **OFF** text, in addition to the highlighted button.
 - **The On / Off button matching an outlet's current state is now highlighted** (green for On, red for Off), so state reads at a glance instead of relying on the theme's subtle checked look.
 - **The "No Kasa devices answered" scan message now mentions Third-Party Compatibility**, the usual reason a device on the network is invisible.

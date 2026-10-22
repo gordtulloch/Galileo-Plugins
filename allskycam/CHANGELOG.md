@@ -4,6 +4,10 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+
+- **Distribution ZIP is now a GitHub release asset, not a committed file.** The built ZIP (`allskycam/dist/`) is git-ignored; CI uploads it to the `allskycam-v<version>` release and `plugins.json`'s `download_url` points there. Committed ZIPs conflicted on every merge between a local build and CI's rebuild. No plugin code changed; install from the Marketplace or a downloaded release ZIP as before.
+
 ### Added
 
 - **Self-signed HTTPS certificates are accepted.** indi-allsky installs normally serve a self-signed certificate, so TLS verification is deliberately off for the connection to the configured server (and its warning silenced).

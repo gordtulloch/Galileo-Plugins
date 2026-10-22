@@ -6,6 +6,7 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ### Changed
 
+- **Distribution ZIP is now a GitHub release asset, not a committed file.** The built ZIP (`generic_relay/dist/`) is git-ignored; CI uploads it to the `generic_relay-v<version>` release and `plugins.json`'s `download_url` points there. Committed ZIPs conflicted on every merge between a local build and CI's rebuild. No plugin code changed; install from the Marketplace or a downloaded release ZIP as before.
 - **The Internet Relay panel moved from Science to Equipment > Switches** (`panel_level = "equipment:switch"`, the same place the Kasa plugin uses), since relay boards are switch devices. Needs a Galileo that supports plugin panels on Equipment pages (`PLUG-070`).
 
 ### Added

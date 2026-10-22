@@ -6,6 +6,7 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ### Changed
 
+- **Distribution ZIP is now a GitHub release asset, not a committed file.** The built ZIP (`switchbot_bot/dist/`) is git-ignored; CI uploads it to the `switchbot_bot-v<version>` release and `plugins.json`'s `download_url` points there. Committed ZIPs conflicted on every merge between a local build and CI's rebuild. No plugin code changed; install from the Marketplace or a downloaded release ZIP as before.
 - **Every SwitchBot action is now written to the log** (so it shows in the Equipment page's log tail): each command sent to a Bot, scan start/finish, and Bots added or removed.
 - **The SwitchBot panel no longer has its own scroll area.** Each Bot box shows at full height, and the host Equipment page scrolls the whole switch area (needs the matching Galileo change).
 
