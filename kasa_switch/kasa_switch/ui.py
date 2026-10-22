@@ -184,11 +184,7 @@ class _DeviceBox(QGroupBox):
                 item.widget().deleteLater()
         for outlet in self.adapter.switches:
             row = QHBoxLayout()
-            state_label = QLabel(
-                f"{outlet.name} — <b style='color: {'#2e7d32' if outlet.state else '#c0392b'}'>"
-                f"{'ON' if outlet.state else 'OFF'}</b>"
-            )
-            row.addWidget(state_label, 1)
+            row.addWidget(QLabel(outlet.name), 1)
             on_btn = QPushButton("On")
             off_btn = QPushButton("Off")
             for btn, value in ((on_btn, True), (off_btn, False)):
