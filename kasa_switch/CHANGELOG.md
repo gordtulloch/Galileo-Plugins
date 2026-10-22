@@ -4,6 +4,10 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+
+- **Scan for KASA switches missed devices that were on the network.** `protocol.discover` sent one broadcast from an unbound socket, which only leaves via the default-route interface — on machines with several adapters (VPN, WSL/Hyper-V, Wi-Fi + Ethernet) the one carrying the Kasa devices was never tried. It now broadcasts from every local IPv4 interface, to both `255.255.255.255` and that interface's /24 broadcast, twice each. Devices on newer KLAP/AES firmware don't answer the legacy port-9999 protocol at all and still need to be added by IP (and may not work).
+
 ### Changed
 
 - **Kasa controls moved from Science to Equipment > Switches** (`panel_level = "equipment:switch"`; needs a Galileo that supports equipment panels). The tabbed per-device table is replaced by a **Scan for KASA switches** button (UDP broadcast discovery, new `protocol.discover`) and, for each device found, a box listing its outlets with **On** / **Off** buttons. **Add by IP…** remains for devices the broadcast can't reach. Network I/O now runs off the UI thread, so an unreachable device no longer freezes the app.

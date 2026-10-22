@@ -75,35 +75,87 @@ def send_command(
     return json.loads(decrypt(body))
 
 
+def _local_ipv4_addresses() -> list[str]:
+    """Every local IPv4 address worth broadcasting from (loopback excluded).
+
+    A single broadcast from an unbound socket leaves through only the OS's
+    default-route interface, so on a machine with several adapters (VPN,
+    WSL/Hyper-V virtual switches, Wi-Fi plus Ethernet) the one carrying the
+    Kasa devices is often never tried.
+    """
+    addrs: set[str] = set()
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            addrs.add(info[4][0])
+    except OSError:
+        pass
+    try:  # the address the default route would use; no packet is sent
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("192.0.2.1", 9))
+            addrs.add(probe.getsockname()[0])
+    except OSError:
+        pass
+    return sorted(a for a in addrs if not a.startswith(("127.", "169.254.", "0.")))
+
+
 def discover(*, port: int = _DEFAULT_PORT, timeout: float = 3.0) -> list[tuple[str, dict[str, Any]]]:
     """Find Kasa devices on the local network by UDP broadcast.
 
     Broadcasts a ``get_sysinfo`` request (the same obfuscation as the TCP
-    protocol but without the length prefix) and collects replies until
-    *timeout* seconds have passed. Returns ``(host, sysinfo)`` pairs, one per
-    responding device.
+    protocol but without the length prefix) from *each* local IPv4 interface,
+    to both the limited broadcast and that interface's assumed /24 broadcast,
+    and collects replies until *timeout* seconds have passed. Returns
+    ``(host, sysinfo)`` pairs, one per responding device.
+
+    Only devices speaking the legacy port-9999 protocol answer; newer Kasa
+    firmware (KLAP/AES) does not and must be added by IP.
     """
+    import select
     import time
 
     request = encrypt(json.dumps({"system": {"get_sysinfo": {}}}))[4:]
+    socks: list[socket.socket] = []
+    for local in _local_ipv4_addresses() or [""]:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            sock.bind((local, 0))
+        except OSError:
+            sock.close()
+            continue
+        targets = ["255.255.255.255"]
+        if local:
+            targets.append(local.rsplit(".", 1)[0] + ".255")
+        for target in targets:
+            for _ in range(2):  # UDP is lossy; one retry is cheap
+                try:
+                    sock.sendto(request, (target, port))
+                except OSError:
+                    break
+        socks.append(sock)
+
     found: dict[str, dict[str, Any]] = {}
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        sock.bind(("", 0))
-        sock.sendto(request, ("255.255.255.255", port))
+    try:
         deadline = time.monotonic() + timeout
-        while (remaining := deadline - time.monotonic()) > 0:
-            sock.settimeout(remaining)
+        while socks and (remaining := deadline - time.monotonic()) > 0:
             try:
-                data, (host, _port) = sock.recvfrom(4096)
-            except (socket.timeout, OSError):
+                ready, _, _ = select.select(socks, [], [], remaining)
+            except OSError:
                 break
-            try:
-                info = json.loads(decrypt(data)).get("system", {}).get("get_sysinfo", {})
-            except (ValueError, UnicodeDecodeError):
-                continue
-            if info:
-                found[host] = info
+            for sock in ready:
+                try:
+                    data, (host, _port) = sock.recvfrom(4096)
+                except OSError:
+                    continue
+                try:
+                    info = json.loads(decrypt(data)).get("system", {}).get("get_sysinfo", {})
+                except (ValueError, UnicodeDecodeError):
+                    continue
+                if info:
+                    found[host] = info
+    finally:
+        for sock in socks:
+            sock.close()
     return list(found.items())
 
 
