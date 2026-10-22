@@ -43,6 +43,10 @@ logger = logging.getLogger(__name__)
 
 _POLL_INTERVAL_MS = 5000
 
+# The button matching the outlet's current state is filled, so On/Off reads at a glance.
+_ON_STYLE = "QPushButton:checked { background-color: #2e7d32; color: white; font-weight: bold; }"
+_OFF_STYLE = "QPushButton:checked { background-color: #c0392b; color: white; font-weight: bold; }"
+
 
 class _Task(QObject):
     """Runs ``fn`` on a daemon thread and delivers its result (or exception)
@@ -179,6 +183,7 @@ class _DeviceBox(QGroupBox):
             for btn, value in ((on_btn, True), (off_btn, False)):
                 btn.setCheckable(True)
                 btn.setChecked(outlet.state == value)
+                btn.setStyleSheet(_ON_STYLE if value else _OFF_STYLE)
                 btn.setFixedWidth(60)
                 btn.clicked.connect(lambda _c, n=outlet.name, v=value: self._set(n, v))
                 row.addWidget(btn)

@@ -10,6 +10,7 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ### Changed
 
+- **The On / Off button matching an outlet's current state is now highlighted** (green for On, red for Off), so state reads at a glance instead of relying on the theme's subtle checked look.
 - **The "No Kasa devices answered" scan message now mentions Third-Party Compatibility**, the usual reason a device on the network is invisible.
 - **The Kasa panel no longer has its own scroll area.** Each device box shows at full height from the top of the page, and the host Equipment page scrolls the whole switch area (needs the matching Galileo change).
 - **Kasa controls moved from Science to Equipment > Switches** (`panel_level = "equipment:switch"`; needs a Galileo that supports equipment panels). The tabbed per-device table is replaced by a **Scan for KASA switches** button (UDP broadcast discovery, new `protocol.discover`) and, for each device found, a box listing its outlets with **On** / **Off** buttons. **Add by IP…** remains for devices the broadcast can't reach. Network I/O now runs off the UI thread, so an unreachable device no longer freezes the app.
