@@ -76,13 +76,19 @@ def build_one(plugin_dir: Path) -> Path | None:
         for f in pkg.rglob("*.py")
         if "__pycache__" not in f.parts
     ]
+    # In-app help: Markdown under a package's help/ folder is registered by Galileo when the plugin loads.
+    help_files = [
+        f
+        for pkg in packages
+        for f in pkg.rglob("help/*.md")
+    ]
 
     with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.write(plugin_dir / "plugin.toml", "plugin.toml")
-        for f in sorted(py_files):
+        for f in sorted([*py_files, *help_files]):
             zf.write(f, f.relative_to(plugin_dir).as_posix())
 
-    print(f"  ZIP: {dest.relative_to(REPO_ROOT)}  ({len(py_files)} .py file(s))")
+    print(f"  ZIP: {dest.relative_to(REPO_ROOT)}  ({len(py_files)} .py, {len(help_files)} help file(s))")
     return dest
 
 

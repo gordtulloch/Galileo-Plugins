@@ -21,7 +21,7 @@ class GenericRelayPlugin(PluginBase):
     name = "GenericRelayPlugin"
     version = "1.0.0"
     api_version = "1"
-    panel_level = "secondary"
+    panel_level = "equipment:switch"
     panel_label = "Internet Relay"
 
     def activate(self, ctx) -> None:

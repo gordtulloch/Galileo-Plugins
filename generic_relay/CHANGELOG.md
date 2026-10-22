@@ -4,6 +4,10 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+
+- **The Internet Relay panel moved from Science to Equipment > Switches** (`panel_level = "equipment:switch"`, the same place the Kasa plugin uses), since relay boards are switch devices. Needs a Galileo that supports plugin panels on Equipment pages (`PLUG-070`).
+
 ### Added
 
 - **Initial release.** `GenericRelayAdapter` implements Galileo's Switch device port (`galileo.core.devices.DeviceBackend`, `EQP-SW-010`) for relay boards that toggle each relay via a plain HTTP GET rather than any structured API — the common pattern on cheap ESP8266/Arduino-based Ethernet relay boards. Each relay's on/off URL is built from a user-supplied `str.format()` template with `{ip}`/`{port}` (zero-based relay index)/`{state}` (0/1) placeholders, defaulting to `http://{ip}/30000/{port}{state}`, which reproduces `http://10.0.0.101/30000/01` (relay 1 on) / `http://10.0.0.101/30000/00` (relay 1 off) exactly. Boards with a different URL scheme are supported by editing the template, not the code.

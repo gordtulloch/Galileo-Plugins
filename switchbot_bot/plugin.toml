@@ -1,0 +1,15 @@
+# SwitchBot Bot plugin manifest — installed by the Galileo Plugin Marketplace
+# or via Options > Plugins > Install from file.
+#
+# Presses/switches SwitchBot Bot devices over Bluetooth Low Energy, e.g. to
+# power a ZWO Seestar on and off. Needs the "bleak" package (pip install bleak).
+
+name        = "switchbot_bot"
+version     = "1.0.0"
+api_min     = "1"
+api_max     = "1"
+author      = "Gord Tulloch"
+description = "Control SwitchBot Bot devices over Bluetooth LE (e.g. to power a Seestar on and off) as Galileo switch devices"
+tier        = "first_party"
+nav_level   = "secondary"
+entry_point = "switchbot_bot"

@@ -1,0 +1,16 @@
+# AllSkyCam plugin manifest — installed by the Galileo Plugin Marketplace or via
+# Options > Plugins > Install from file.
+#
+# Shows the newest image from an indi-allsky all-sky camera as a still and as an
+# animation of the last few images, in its own sidebar section and an optional
+# dockable pane.
+
+name        = "allskycam"
+version     = "1.0.0"
+api_min     = "1"
+api_max     = "1"
+author      = "Gord Tulloch"
+description = "Show the latest image from an indi-allsky all-sky camera, plus an animation of the last few images"
+tier        = "first_party"
+nav_level   = "primary"
+entry_point = "allskycam"

@@ -27,7 +27,7 @@ class VSTPlugin(PluginBase):
     name = "VSTPlugin"
     version = "1.0.0"
     api_version = "1"
-    panel_level = "primary"
+    panel_level = "science"
     panel_label = "Variable Stars"
 
     def activate(self, ctx) -> None:
@@ -46,7 +46,7 @@ class VSTAnalysisPlugin(PluginBase):
     name = "VSTAnalysisPlugin"
     version = "1.0.0"
     api_version = "1"
-    panel_level = "secondary"
+    panel_level = "science"
     panel_label = "VS Analysis"
 
     def activate(self, ctx) -> None:

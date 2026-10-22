@@ -4,6 +4,10 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+
+- **Both panels now declare `panel_level = "science"`** (was `"primary"` / `"secondary"`) so the plugin states where it lives -- the Science section -- rather than relying on those older spellings, which Galileo still accepts. Behaviour is unchanged; "Variable Stars" and "VS Analysis" stay in the Science menu.
+
 ### Removed
 
 - **SFTP image retrieval (`VST-AN-010`) removed.** `vstarget.analysis.SftpImageRetriever` was only a re-export of Galileo's own Library SFTP adapter (`galileo.library.adapters`), which is core's to own — the plugin never had an SFTP implementation, and its analysis panel takes images from the Galileo library (`VST-AN-100`) rather than fetching them itself. The re-export module, its `paramiko` dependency and its mock-only test are gone.

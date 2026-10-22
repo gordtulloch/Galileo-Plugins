@@ -10,7 +10,9 @@ First-party plugins for [Galileo](https://github.com/gordtulloch/Galileo), the c
 |--------|-------------|---------|
 | [vstarget](#vstarget) | AAVSO variable-star planning and photometric analysis | 1.0.0 |
 | [kasa_switch](#kasa_switch) | Control TP-Link Kasa smart plugs and power strips (e.g. HS300) | 1.0.0 |
+| [switchbot_bot](#switchbot_bot) | Press or switch SwitchBot Bot devices over Bluetooth LE (e.g. to power a Seestar) | 1.0.0 |
 | [generic_relay](#generic_relay) | Control generic HTTP-toggled Internet relay boards | 1.0.0 |
+| [allskycam](#allskycam) | Latest image and animation from an indi-allsky all-sky camera, with an optional dockable pane | 1.0.0 |
 
 ---
 
@@ -112,7 +114,7 @@ Output ZIPs land in `<plugin>/dist/`. `plugins.json` is updated at the repo root
 1. Scans the repo root for subdirectories containing `plugin.toml`.
 2. For each, reads `name` and `version` from the manifest.
 3. Finds the Python package directory named after the plugin (convention: `<plugin_dir>/<name>/`).
-4. Packs `plugin.toml` at the archive root + all `.py` files under the package into `<plugin_dir>/dist/galileo-plugin-<name>-<version>.zip`.
+4. Packs `plugin.toml` at the archive root + all `.py` files and `help/*.md` under the package into `<plugin_dir>/dist/galileo-plugin-<name>-<version>.zip`.
 5. Writes or updates the matching entry in `plugins.json` with a `raw.githubusercontent.com` download URL.
 
 ---
@@ -267,6 +269,35 @@ pytest
 
 ---
 
+## switchbot_bot
+
+**SwitchBot Bot control over Bluetooth LE** — registers a Galileo Switch device backend (`EQP-SW-010`) for SwitchBot Bot buttons, chiefly a Bot fixed over a ZWO Seestar's power button so Galileo can power the telescope on and off. Shown on Equipment > Switches.
+
+Needs the `bleak` package (`pip install bleak`) and a Bluetooth adapter in range of the Bot. It uses `bleak` with its own small protocol layer rather than [switchbotpy](https://github.com/RoButton/switchbotpy) (whose `gatttool` backend is Linux-only), following switchbotpy's command set.
+
+### What it does
+
+- **`switchbot_bot.protocol`** — press / on / off commands (plus the password form), status decoding, scan and per-command connect over `bleak`.
+- **`SwitchBotAdapter`** — one switch per Bot; dual-state Bots extend/retract, press-mode Bots press for both. State shown is the last command sent.
+- **SwitchBot panel** — **Scan for SwitchBots**, **Add by address…**, and per-Bot **On / Off / Press / Check** with battery and mode. Bots are not polled, to save their batteries.
+
+### Package layout
+
+```
+switchbot_bot/
+├── plugin.toml
+├── switchbot_bot/
+│   ├── __init__.py       SwitchBotPlugin (PluginBase)
+│   ├── protocol.py       commands, status decoding, scan/send (bleak)
+│   ├── adapter.py        SwitchBotAdapter, BotSwitch
+│   ├── settings.py       SwitchBotSettings (QSettings-backed Bot list)
+│   ├── ui.py             build_switchbot_page, AddBotDialog
+│   └── help/plugin.SwitchBotPlugin.md
+└── tests/test_switchbot.py   TC-SBOT-010 … TC-SBOT-040
+```
+
+---
+
 ## generic_relay
 
 **Generic HTTP Internet relay board control** — registers a Galileo Switch device backend (`EQP-SW-010`) for relay boards that toggle each relay via a plain HTTP GET rather than any structured API — the common pattern on cheap ESP8266/Arduino-based Ethernet relay boards.
@@ -275,7 +306,7 @@ pytest
 
 - **`GenericRelayAdapter`** — each relay's on/off URL is built from a user-supplied `str.format()` template with `{ip}` / `{port}` (zero-based relay index) / `{state}` (0/1) placeholders, defaulting to `http://{ip}/30000/{port}{state}`. That default reproduces the reference example exactly: relay 1 on → `http://10.0.0.101/30000/01`, relay 1 off → `http://10.0.0.101/30000/00`. A board with a different scheme is supported by editing the template, not the code.
 - **No readback assumed** — most boards in this class have no endpoint to ask "is relay 3 on?", so a switch's displayed state is the last state this adapter commanded, not a polled hardware readout.
-- **Internet Relay panel** — one tab per configured board (added via the "+" button, which prompts for host/IP, relay count, and the toggle URL template), each a table of that board's relays with a click-to-toggle status cell. No poll timer, since there is nothing to poll. The device list persists via `QSettings`.
+- **Internet Relay panel** (on Equipment > Switches) — one tab per configured board (added via the "+" button, which prompts for host/IP, relay count, and the toggle URL template), each a table of that board's relays with a click-to-toggle status cell. No poll timer, since there is nothing to poll. The device list persists via `QSettings`.
 
 ### Package layout
 
@@ -301,6 +332,55 @@ generic_relay/
 cd Galileo-Plugins/generic_relay
 pip install -e ".[test]"
 pytest
+```
+
+---
+
+## allskycam
+
+**indi-allsky all-sky camera viewer** — shows the newest image from an [indi-allsky](https://github.com/aaronwmorris/indi-allsky) all-sky camera on your network, as a still and as an animation of the last few images. indi-allsky needs no changes: the plugin follows its existing `/latestimage` redirect to the newest processed JPEG/PNG.
+
+### What it does
+
+- **Its own sidebar section** (`panel_level = "top"`) with a lens-and-horizon icon, holding three tabs: **Latest** (the image as downloaded), **Animation** (the last *n* images, looping) and **Settings**.
+- **Settings** — indi-allsky address, optional camera number, how often to check (10 s – 1 h), how many images the animation keeps, animation speed, **Pause during daytime** with a Sun-altitude limit, and **Show animation pane**. **Test connection** tries the form's values without saving. Stored in Galileo's database (`ctx.settings()`), not in a file.
+- **Daytime pause** — optional. Computed locally from the selected Observatory's latitude/longitude with Galileo's own solar position (`galileo.planning.visibility.sun_altitude_deg`), not from indi-allsky's idea of day. With no Observatory location it does not pause, and says so.
+- **Dockable animation pane** — a pane docked to the Galileo window (movable, floatable) that plays the animation on any screen. Its close button turns the option off; the choice is remembered.
+- **Polite to the server** — the redirect is followed by hand, so an image that has not changed since the last check is recognised from the `Location` header and never downloaded again. Downloads run on a worker thread; images are held as compressed bytes and capped at 256 MB in total.
+- **Limitations** — unauthenticated access only (an indi-allsky install with *Require login for all views* returns its login page, which the plugin reports); images are kept in memory only, so the animation refills after a restart.
+
+### Package layout
+
+```
+allskycam/
+├── plugin.toml
+├── pyproject.toml
+├── build_zip.py
+├── dist/
+├── allskycam/
+│   ├── __init__.py       AllSkyCamPlugin (PluginBase): top-level panel, dock pane, icon, enable/disable
+│   ├── config.py         AllSkyConfig: options, ranges, clamping
+│   ├── client.py         AllSkyClient: /latestimage, redirect handling, unchanged detection, error mapping
+│   ├── daytime.py        check_pause: local Sun-altitude test
+│   ├── buffer.py         FrameBuffer: rolling, memory-capped set of recent images
+│   ├── cycle.py          run_cycle: one pause-check + fetch, never raises (worker-thread safe)
+│   ├── service.py        AllSkyService: timer, worker thread, shared state for every view
+│   ├── ui.py             AllSkyCamPage, LatestView, AnimationView, SettingsForm, DockPane
+│   └── help/
+│       └── plugin.AllSkyCamPlugin.md   in-app help, one section per control
+└── tests/
+    ├── conftest.py
+    └── test_asc.py       TC-ASC-010 … TC-ASC-090 (incl. end-to-end against a local fake indi-allsky)
+```
+
+Requirements and design: [`docs/plugins/allskycam/`](https://github.com/gordtulloch/Galileo/tree/main/docs/plugins/allskycam) in the Galileo repository.
+
+### Development setup
+
+```bash
+cd Galileo-Plugins/allskycam
+pip install -e ".[test]"
+python -m pytest
 ```
 
 ---
@@ -372,12 +452,26 @@ class MyPlugin(PluginBase):
 | `ctx.register_instruction_type(cls)` | Register a new session block type (`PLUG-020`) — any class with an async `execute(context)` |
 | `ctx.get_service(name)` | Retrieve a named core service granted to this plugin at load time |
 
-### 5. Nav levels
+### 5. Where your panel appears
+
+`panel_level` is the plugin's own declaration of its menu location:
 
 | `panel_level` | Where it appears |
 |---------------|-----------------|
-| `"primary"` | Replaces any same-labelled stub in the Science submenu; shown as a full sub-panel icon |
-| `"secondary"` | Appended as an additional sub-panel inside Science |
+| `"science"` | An item in the Science section's menu (`"primary"` and `"secondary"` are older spellings of the same place and still work; `"primary"` also replaces a same-labelled stub) |
+| `"equipment:<category>"` | A panel on one Equipment device page, e.g. `"equipment:switch"` for Equipment > Switches |
+| `"top"` | Its own top-level icon in the left sidebar. Override `panel_icon_painter()` to return a `draw(painter, rect)` callable for a custom icon; otherwise the generic plugin icon is used |
+
+Further optional hooks on `PluginBase`:
+
+| Hook | Purpose |
+|------|---------|
+| `dock_label` + `build_dock_widget()` | A pane the user can dock to (or float from) the Galileo window. `dock_initially_visible()` says whether it starts open; `on_dock_visibility_changed(visible)` tells you when the user opens or closes it |
+| `on_enabled_changed(enabled)` | Called when the user enables or disables the plugin in Options > Plugins -- stop and restart any background work here, since a disabled plugin must be inert |
+
+`PluginContext` adds `ctx.settings()` (your options, stored in Galileo's database under `plugin.<name>` -- do not use `QSettings` or config files), `ctx.site_location()` (the selected Observatory's `ObservingLocation`, or `None`) and `ctx.set_dock_visible(bool)`.
+
+**In-app help:** put Markdown in a `help/` folder inside your package and name each file for your screen id (`science.<name>.md`, `plugin.<name>.md` for a top-level panel). `build_plugins.py` ships `help/*.md` in the ZIP.
 
 ### 6. CI and distribution
 
@@ -423,7 +517,7 @@ The index is a JSON array. Each entry:
 | `author` | string | yes | Author name |
 | `description` | string | yes | One-line description shown in the Marketplace |
 | `tier` | string | yes | `"first_party"` or `"third_party"` |
-| `nav_level` | string | no | `"primary"` or `"secondary"` (default: `"primary"`) |
+| `nav_level` | string | no | `"primary"` or `"secondary"` (informational; the plugin class's `panel_level` decides placement) |
 | `entry_point` | string | no | Importable package name; defaults to `galileo.plugins.<name>` |
 
 ---
