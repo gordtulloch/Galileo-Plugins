@@ -120,6 +120,7 @@ class _DeviceBox(QGroupBox):
         self.label = label
         self.adapter = KasaSwitchAdapter(host=host, name=label)
         self._busy = False
+        self._reachable: bool | None = None  # last logged state, so polls only log changes
 
         self._layout = QVBoxLayout(self)
         header = QHBoxLayout()
@@ -152,10 +153,16 @@ class _DeviceBox(QGroupBox):
     def _finish(self, error: Exception | None, on_done: Callable[[], None] | None) -> None:
         self._busy = False
         if error is not None:
-            logger.error("Kasa device %r at %s: %s", self.label, self.host, error)
+            if self._reachable is not False:
+                logger.error("Kasa device %r at %s unreachable: %s", self.label, self.host, error)
+            self._reachable = False
             self.status_label.setText(f"Unreachable: {self.host}")
             self.status_label.setStyleSheet("color: #c0392b;")
             return
+        if self._reachable is not True:
+            logger.info("Kasa device %r at %s connected (%d outlet(s))",
+                        self.label, self.host, len(self.adapter.switches))
+        self._reachable = True
         self.status_label.setText(f"Connected: {self.host}")
         self.status_label.setStyleSheet("color: #2e7d32;")
         self._render()
@@ -177,7 +184,11 @@ class _DeviceBox(QGroupBox):
                 item.widget().deleteLater()
         for outlet in self.adapter.switches:
             row = QHBoxLayout()
-            row.addWidget(QLabel(outlet.name), 1)
+            state_label = QLabel(
+                f"{outlet.name} — <b style='color: {'#2e7d32' if outlet.state else '#c0392b'}'>"
+                f"{'ON' if outlet.state else 'OFF'}</b>"
+            )
+            row.addWidget(state_label, 1)
             on_btn = QPushButton("On")
             off_btn = QPushButton("Off")
             for btn, value in ((on_btn, True), (off_btn, False)):
@@ -236,6 +247,7 @@ def build_kasa_page() -> QWidget:
 
     def _remove_box(host: str) -> None:
         box = boxes.pop(host, None)
+        logger.info("Kasa device at %s removed", host)
         if box is not None:
             box.timer.stop()
             box.deleteLater()
@@ -243,6 +255,7 @@ def build_kasa_page() -> QWidget:
 
     def _on_scan_done(found: list) -> None:
         scan_btn.setEnabled(True)
+        logger.info("Kasa scan finished: %d device(s) answered", len(found))
         new = 0
         for host, info in found:
             if host in boxes:
@@ -265,6 +278,7 @@ def build_kasa_page() -> QWidget:
     def _on_scan() -> None:
         scan_btn.setEnabled(False)
         status.setText("Scanning…")
+        logger.info("Kasa scan started")
         task = _Task(discover, page)
         task.done.connect(_on_scan_done)
         task.failed.connect(_on_scan_failed)
@@ -276,6 +290,7 @@ def build_kasa_page() -> QWidget:
             return
         host, label = dialog.values()
         if host not in boxes:
+            logger.info("Kasa device %r added by address %s", label, host)
             settings.add_device(host, label)
             _add_box(host, label)
 

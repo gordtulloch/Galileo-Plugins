@@ -6,6 +6,7 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ### Changed
 
+- **Every SwitchBot action is now written to the log** (so it shows in the Equipment page's log tail): each command sent to a Bot, scan start/finish, and Bots added or removed.
 - **The SwitchBot panel no longer has its own scroll area.** Each Bot box shows at full height, and the host Equipment page scrolls the whole switch area (needs the matching Galileo change).
 
 ### Added

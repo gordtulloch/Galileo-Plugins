@@ -219,12 +219,14 @@ def build_switchbot_page() -> QWidget:
 
     def _remove_box(address: str) -> None:
         box = boxes.pop(address, None)
+        logger.info("SwitchBot at %s removed", address)
         if box is not None:
             box.deleteLater()
         settings.remove_device(address)
 
     def _on_scan_done(found: list) -> None:
         scan_btn.setEnabled(True)
+        logger.info("SwitchBot scan finished: %d Bot(s) found", len(found))
         new = 0
         for address, name, _rssi in found:
             if address in boxes:
@@ -246,6 +248,7 @@ def build_switchbot_page() -> QWidget:
     def _on_scan() -> None:
         scan_btn.setEnabled(False)
         status.setText("Scanning…")
+        logger.info("SwitchBot scan started")
         task = _Task(lambda: asyncio.run(protocol.scan()), page)
         task.done.connect(_on_scan_done)
         task.failed.connect(_on_scan_failed)
@@ -257,6 +260,7 @@ def build_switchbot_page() -> QWidget:
             return
         address, label, password = dialog.values()
         if address not in boxes:
+            logger.info("SwitchBot %r added by address %s", label, address)
             settings.add_device(address, label, password)
             _add_box(address, label, password)
 

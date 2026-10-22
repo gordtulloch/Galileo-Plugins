@@ -99,3 +99,4 @@ class SwitchBotAdapter(DeviceBackend):
             self.address, protocol.build_command(action, self.password)
         )
         protocol.check_status(response)
+        logger.info("SwitchBot %s (%s): %s sent", self.name, self.address, action.name)

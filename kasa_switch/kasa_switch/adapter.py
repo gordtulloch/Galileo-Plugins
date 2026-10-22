@@ -113,3 +113,5 @@ class KasaSwitchAdapter(DeviceBackend):
             }
         await asyncio.to_thread(send_command, self.host, command, port=self.port)
         outlet.state = bool(state)
+        logger.info("Kasa %s (%s): outlet %r switched %s", self._alias or self.name,
+                    self.host, name, "ON" if state else "OFF")
