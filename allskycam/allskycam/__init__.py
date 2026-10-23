@@ -43,6 +43,7 @@ class AllSkyCamPlugin(PluginBase):
     panel_label = "AllSkyCam"
     dock_label = "AllSkyCam"
     options_label = "AllSkyCam"
+    dashboard_label = "AllSkyCam"        # offered on the Dashboard when "Publish on Dashboard" is ticked (ASC-100)
 
     def __init__(self) -> None:
         self._ctx: Any = None
@@ -103,6 +104,13 @@ class AllSkyCamPlugin(PluginBase):
             return None
         from allskycam.ui import AllSkyCamPage
         return AllSkyCamPage(service)
+
+    def build_dashboard_widget(self):
+        service = self._ensure_service()
+        if service is None:
+            return None
+        from allskycam.ui import DashboardView
+        return DashboardView(service)
 
     def panel_icon_painter(self):
         return _draw_icon

@@ -747,6 +747,26 @@ def test_tc_asc_070_saving_the_pane_option_opens_or_closes_the_pane(qapp):
         p.deactivate()
 
 
+@pytest.mark.requirement("TC-ASC-100")
+@pytest.mark.priority("P2")
+def test_tc_asc_100_plugin_offers_a_dashboard_view_over_the_shared_service(qapp):
+    """ASC-100: the plugin offers a Dashboard view that plays the shared service's animation and scales to the space it is given."""
+    from allskycam import AllSkyCamPlugin
+    from allskycam.ui import AnimationView, DashboardView
+    p = AllSkyCamPlugin()
+    assert p.dashboard_label == "AllSkyCam"
+    p.activate(FakeContext())
+    try:
+        view = p.build_dashboard_widget()
+        assert isinstance(view, DashboardView)
+        assert isinstance(view.animation, AnimationView)
+        assert view.animation._service is p._service
+        view.resize(640, 360)                      # takes whatever height the Dashboard gives it
+        assert view.animation.image.height() > 120
+    finally:
+        p.deactivate()
+
+
 @pytest.mark.requirement("TC-ASC-090")
 @pytest.mark.priority("MVP")
 def test_tc_asc_090_disabled_plugin_is_inert(qapp):
