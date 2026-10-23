@@ -174,3 +174,15 @@ async def test_tc_sbot_040_scan_keeps_only_bots_strongest_first(monkeypatch):
 
     monkeypatch.setitem(sys.modules, "bleak", types.SimpleNamespace(BleakScanner=FakeScanner))
     assert await protocol.scan(0.1) == [("B", "Near Bot", -40), ("A", "Far Bot", -80)]
+
+
+@pytest.mark.requirement("TC-SBOT-020")
+@pytest.mark.priority("MVP")
+async def test_tc_sbot_020_rename_changes_bot_and_switch_name(bot):
+    """SBOT-020: renaming a Bot renames its switch; the old name stops working."""
+    adapter = SwitchBotAdapter("AA:BB", name="WoHand")
+    adapter.rename("Seestar power")
+    assert [s.name for s in adapter.switches] == ["Seestar power"]
+    await adapter.set_switch("Seestar power", True)
+    with pytest.raises(ValueError):
+        await adapter.set_switch("WoHand", True)
