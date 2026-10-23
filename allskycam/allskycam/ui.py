@@ -347,6 +347,20 @@ class AllSkyCamPage(QWidget):
         service.status_changed.connect(self.status.setText)
 
 
+class DashboardView(QWidget):
+    """The animation, scaled to whatever space the Galileo Dashboard gives it (ASC-100). Like the
+    dock pane it shares the one service, and the animation only runs while the Dashboard shows."""
+
+    def __init__(self, service: AllSkyService) -> None:
+        super().__init__()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+        self.animation = AnimationView(service)
+        layout.addWidget(self.animation, 1)
+        self.setMinimumHeight(120)
+
+
 class DockPane(QWidget):
     """The compact dockable pane: the animation and a one-line status (ASC-070)."""
 

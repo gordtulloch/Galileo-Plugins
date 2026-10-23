@@ -45,3 +45,7 @@ Tries the address and camera number currently in the form, without saving them, 
 ## Save
 
 Applies and stores all of the options on this tab. Changing the server address or camera number starts the animation over.
+
+## Publish on Dashboard
+
+Shows the animation at the top of Galileo's Dashboard, above the Pier timelines, scaled to the height the timelines leave free. This box is added by Galileo to the plugin's options and applies as soon as you tick it; the animation shares the images already being fetched, so it costs no extra downloads.
