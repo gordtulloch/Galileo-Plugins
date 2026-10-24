@@ -4,6 +4,8 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.1.0]
+
 ### Added
 
 - **Publish on Dashboard.** The plugin now offers its animation as a Dashboard view (`dashboard_label` / `build_dashboard_widget()`, `ASC-100`). Tick **Publish on Dashboard** under Options > AllSkyCam (the box is added by Galileo) and the animation appears above the Pier timelines on the Dashboard, scaled to the height they leave free. It shares the one fetch service with the page and the dock pane, and only animates while the Dashboard is showing. Requires a Galileo with the Dashboard plugin area (`PLUG-180`); on an older Galileo the new attribute is ignored and nothing changes.
