@@ -4,6 +4,8 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.0.1]
+
 ### Changed
 
 - **Variable Star Planning panel layout realigned with the standalone VSTarget planner.** The Variable List and Observation Targets halves now split roughly evenly (the plan side was squeezed to ~40%); the bottom status strip is frameless like the original status bar; and **Session Options** is collapsed by default (tick its title to expand) so the plan table fills the right panel instead of sharing it with the options. No controls were added or removed, so the inline help is unchanged.
