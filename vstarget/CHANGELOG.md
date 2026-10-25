@@ -6,6 +6,7 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ### Changed
 
+- **Variable Star Planning panel layout realigned with the standalone VSTarget planner.** The Variable List and Observation Targets halves now split roughly evenly (the plan side was squeezed to ~40%); the bottom status strip is frameless like the original status bar; and **Session Options** is collapsed by default (tick its title to expand) so the plan table fills the right panel instead of sharing it with the options. No controls were added or removed, so the inline help is unchanged.
 - **Distribution ZIP is now a GitHub release asset, not a committed file.** The built ZIP (`vstarget/dist/`) is git-ignored; CI uploads it to the `vstarget-v<version>` release and `plugins.json`'s `download_url` points there. Committed ZIPs conflicted on every merge between a local build and CI's rebuild. No plugin code changed; install from the Marketplace or a downloaded release ZIP as before.
 - **Both panels now declare `panel_level = "science"`** (was `"primary"` / `"secondary"`) so the plugin states where it lives -- the Science section -- rather than relying on those older spellings, which Galileo still accepts. Behaviour is unchanged; "Variable Stars" and "VS Analysis" stay in the Science menu.
 

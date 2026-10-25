@@ -121,8 +121,9 @@ class VSTPlanningPage(QWidget):
         splitter = QSplitter(Qt.Horizontal)
         splitter.addWidget(self._build_variable_panel())
         splitter.addWidget(self._build_targets_panel())
-        splitter.setStretchFactor(0, 55)
-        splitter.setStretchFactor(1, 45)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([480, 520])
         outer.addWidget(splitter, 1)
         outer.addWidget(self._build_status_bar())
 
@@ -353,8 +354,12 @@ class VSTPlanningPage(QWidget):
         return table
 
     def _build_session_options(self) -> QWidget:
+        # Collapsed by default so the plan table gets the panel, as in the
+        # standalone planner; ticking the title reveals the options.
         box = QGroupBox("Session Options")
-        vbox = QVBoxLayout(box)
+        box.setCheckable(True)
+        box.setChecked(False)
+        vbox = QVBoxLayout()
 
         blocks_row = QHBoxLayout()
         blocks_row.addWidget(QLabel("Blocks:"))
@@ -394,6 +399,14 @@ class VSTPlanningPage(QWidget):
         action_row.addWidget(preview_btn)
         action_row.addWidget(create_btn)
         vbox.addLayout(action_row)
+
+        body = QWidget()
+        body.setLayout(vbox)
+        body_layout = QVBoxLayout(box)
+        body_layout.setContentsMargins(0, 0, 0, 0)
+        body_layout.addWidget(body)
+        body.setVisible(False)
+        box.toggled.connect(body.setVisible)
         return box
 
     def _build_defaults_box(self) -> QWidget:
@@ -440,7 +453,7 @@ class VSTPlanningPage(QWidget):
     def _build_status_bar(self) -> QWidget:
         bar = QFrame()
         bar.setObjectName("VSTStatusBar")
-        bar.setFrameShape(QFrame.StyledPanel)
+        bar.setFrameShape(QFrame.NoFrame)
         row = QHBoxLayout(bar)
         row.setContentsMargins(6, 2, 6, 2)
 
