@@ -63,6 +63,11 @@ class SwitchBotAdapter(DeviceBackend):
             "switches": {s.name: s.state for s in self.switches},
         }
 
+    def rename(self, name: str) -> None:
+        """Change the name this Bot (and its one switch) is known by."""
+        self.name = name or self.address
+        self.switches[0].name = self.name
+
     async def connect(self) -> None:
         """Read the Bot's settings (battery, mode) — proves it is in range."""
         response = await protocol.send(self.address, protocol.GET_SETTINGS)

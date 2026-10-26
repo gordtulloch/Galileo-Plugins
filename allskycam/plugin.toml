@@ -6,7 +6,7 @@
 # dockable pane.
 
 name        = "allskycam"
-version     = "1.0.0"
+version     = "1.1.0"
 api_min     = "1"
 api_max     = "1"
 author      = "Gord Tulloch"

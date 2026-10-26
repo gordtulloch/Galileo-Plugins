@@ -25,7 +25,7 @@ from vstarget.planning.models import (
 class VSTPlugin(PluginBase):
     """Variable star planning plugin (VST)."""
     name = "VSTPlugin"
-    version = "1.0.0"
+    version = "1.0.1"
     api_version = "1"
     panel_level = "science"
     panel_label = "Variable Stars"
@@ -44,7 +44,7 @@ class VSTPlugin(PluginBase):
 class VSTAnalysisPlugin(PluginBase):
     """Variable star analysis plugin (VST-AN)."""
     name = "VSTAnalysisPlugin"
-    version = "1.0.0"
+    version = "1.0.1"
     api_version = "1"
     panel_level = "science"
     panel_label = "VS Analysis"

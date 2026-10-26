@@ -36,6 +36,13 @@ class SwitchBotSettings:
         devices.append({"address": address, "label": label, "password": password})
         self._save(devices)
 
+    def rename_device(self, address: str, label: str) -> None:
+        devices = self.devices
+        for d in devices:
+            if d.get("address") == address:
+                d["label"] = label
+        self._save(devices)
+
     def remove_device(self, address: str) -> None:
         self._save([d for d in self.devices if d.get("address") != address])
 

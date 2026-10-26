@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -111,6 +112,7 @@ class _BotBox(QGroupBox):
     """One Bot: status line plus Check / On / Off / Press / Remove buttons."""
 
     removed = Signal(str)
+    renamed = Signal(str, str)
 
     def __init__(self, address: str, label: str, password: str, parent=None) -> None:
         super().__init__(label, parent)
@@ -140,6 +142,10 @@ class _BotBox(QGroupBox):
             row.addWidget(btn)
             self.buttons[text] = btn
         row.addStretch(1)
+        rename_btn = QPushButton("Rename…")
+        rename_btn.setToolTip("Give this Bot a name, e.g. \"Seestar power\".")
+        rename_btn.clicked.connect(self._on_rename)
+        row.addWidget(rename_btn)
         remove_btn = QPushButton("Remove")
         remove_btn.setToolTip("Forget this Bot (it can be found again with a scan).")
         remove_btn.clicked.connect(lambda: self.removed.emit(self.address))
@@ -147,6 +153,16 @@ class _BotBox(QGroupBox):
         layout.addLayout(row)
 
         self._run(self.adapter.refresh)
+
+    def _on_rename(self) -> None:
+        name, ok = QInputDialog.getText(self, "Rename SwitchBot", "Name:", text=self.label)
+        name = name.strip()
+        if not ok or not name or name == self.label:
+            return
+        self.label = name
+        self.setTitle(name)
+        self.adapter.rename(name)
+        self.renamed.emit(self.address, name)
 
     def _run(self, coro_fn: Callable[[], object]) -> None:
         if self._busy:
@@ -214,6 +230,7 @@ def build_switchbot_page() -> QWidget:
             return
         box = _BotBox(address, label, password)
         box.removed.connect(_remove_box)
+        box.renamed.connect(settings.rename_device)
         boxes[address] = box
         boxes_layout.addWidget(box)
 
@@ -235,8 +252,7 @@ def build_switchbot_page() -> QWidget:
             _add_box(address, name, "")
             new += 1
         status.setText(
-            f"Found {len(found)} SwitchBot(s), {new} new. Rename or set a password by "
-            "removing one and using Add by address…" if found
+            f"Found {len(found)} SwitchBot(s), {new} new. Use Rename… to name one." if found
             else "No SwitchBot Bots answered. Wake the Bot (press its button) and move closer."
         )
 

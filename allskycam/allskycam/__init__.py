@@ -37,7 +37,7 @@ class AllSkyCamPlugin(PluginBase):
     """Owns the shared fetch service and hands out the page and the dock pane."""
 
     name = "AllSkyCamPlugin"
-    version = "1.0.0"
+    version = "1.1.0"
     api_version = "1"
     panel_level = "top"
     panel_label = "AllSkyCam"

@@ -2,10 +2,10 @@
   {
     "name": "allskycam",
     "description": "Show the latest image from an indi-allsky all-sky camera, plus an animation of the last few images",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "tier": "first_party",
     "author": "Gord Tulloch",
-    "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/allskycam-v1.0.0/galileo-plugin-allskycam-1.0.0.zip"
+    "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/allskycam-v1.1.0/galileo-plugin-allskycam-1.1.0.zip"
   },
   {
     "name": "generic_relay",
@@ -34,9 +34,9 @@
   {
     "name": "vstarget",
     "description": "AAVSO variable-star target planning and photometric analysis (VST + VST-AN)",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "tier": "first_party",
     "author": "Gord Tulloch",
-    "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/vstarget-v1.0.0/galileo-plugin-vstarget-1.0.0.zip"
+    "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/vstarget-v1.0.1/galileo-plugin-vstarget-1.0.1.zip"
   }
 ]

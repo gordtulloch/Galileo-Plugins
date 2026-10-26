@@ -4,7 +4,7 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "galileo-plugin-vstarget"
-version = "1.0.0"
+version = "1.0.1"
 description = "AAVSO variable-star target planning and photometric analysis plugin for Galileo"
 license = { text = "GPL-3.0-or-later" }
 authors = [{ name = "Gord Tulloch", email = "gtulloch@sunrisesd.ca" }]

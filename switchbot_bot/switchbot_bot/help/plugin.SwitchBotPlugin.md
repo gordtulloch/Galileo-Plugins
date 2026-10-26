@@ -26,6 +26,10 @@ Presses once whatever the Bot's mode.
 
 Reads the Bot's battery level and mode. Galileo does this once when the box appears, but does not poll: every contact wakes the Bot and wears its battery. A Bot cannot report which way it was last switched, so the status shows the last command Galileo sent.
 
+## Rename…
+
+Gives the Bot a name (for example "Seestar power"), replacing the one the scan found or the address. The name is saved, shown on the Bot's box and used for the switch in sessions. Use it on Bots found by a scan; Bots added by address are named when added.
+
 ## Remove
 
 Forgets the Bot. Scan again to find it.
