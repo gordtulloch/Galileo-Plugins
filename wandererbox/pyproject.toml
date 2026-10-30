@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "galileo-plugin-wandererbox"
+version = "1.0.0"
+description = "Wanderer Astro WandererBox Pro V3 / Plus V3 / Dew Terminator switch profiles for Galileo"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Gord Tulloch", email = "gtulloch@sunrisesd.ca" }]
+requires-python = ">=3.11"
+dependencies = [
+    "galileo",          # provides PluginBase and galileo.core.switches
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7", "pytest-asyncio>=0.23"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["wandererbox*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"

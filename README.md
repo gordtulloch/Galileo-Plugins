@@ -13,6 +13,7 @@ First-party plugins for [Galileo](https://github.com/gordtulloch/Galileo), the c
 | [switchbot_bot](#switchbot_bot) | Press or switch SwitchBot Bot devices over Bluetooth LE (e.g. to power a Seestar) | 1.0.0 |
 | [generic_relay](#generic_relay) | Control generic HTTP-toggled Internet relay boards | 1.0.0 |
 | [allskycam](#allskycam) | Latest image and animation from an indi-allsky all-sky camera, with an optional dockable pane | 1.0.0 |
+| [wandererbox](#wandererbox) | Use the Wanderer Astro WandererBox Pro V3, Plus V3 and Dew Terminator on Galileo's Switches page | 1.0.0 |
 
 ---
 
@@ -266,6 +267,41 @@ kasa_switch/
 
 ```bash
 cd Galileo-Plugins/kasa_switch
+pip install -e ".[test]"
+pytest
+```
+
+---
+
+## wandererbox
+
+**Wanderer Astro power boxes on Galileo's Switches page** — supplies *switch profiles* for the WandererBox Pro V3, the WandererBox Plus V3 and the Wanderer Dew Terminator, whose INDI drivers use vendor-specific properties instead of INDI's standard power interface. Installed, each appears on **Equipment > Switches** like any other power box: grouped ports with the vendor's names, dew heaters as 0–100 %, the regulated output's voltage, and readings for voltage, current, temperatures, humidity and dew point.
+
+**A data-only plugin.** It has no panel, settings or connection of its own — Galileo core does all the presenting and talking to the device — so it needs a Galileo with switch-profile support (`PLUG-210`) and logs a warning on an older one. Pegasus, Terrans and any other INDI power box that follows INDI's standard power interface need no plugin at all.
+
+**Not covered:** the WandererBox Lite V3 (the vendor states it has no control functions), and a Pro V3 and a Plus V3 on the same INDI server (the Plus V3 driver reports the same default device name as the Pro V3, so a device is identified by the properties it offers, not its name). The drivers were read from source and the profiles tested against recorded property sets; they have not yet been tried on a real box.
+
+### Package layout
+
+```
+wandererbox/
+├── plugin.toml
+├── pyproject.toml
+├── build_zip.py
+├── dist/
+├── wandererbox/
+│   ├── __init__.py       WandererBoxPlugin (PluginBase) — registers the three profiles
+│   └── profiles.py       PRO_V3, PLUS_V3, DEW_TERMINATOR (pure data)
+└── tests/
+    ├── conftest.py
+    ├── recorded.py       the three drivers' property sets, from their sources
+    └── test_wbox.py      TC-WBOX-010 … TC-WBOX-100
+```
+
+### Development setup
+
+```bash
+cd Galileo-Plugins/wandererbox
 pip install -e ".[test]"
 pytest
 ```

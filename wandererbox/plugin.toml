@@ -1,0 +1,14 @@
+# Wanderer Astro power-box plugin manifest — installed by the Galileo Plugin Marketplace or via
+# Options > Plugins > Install from file.
+#
+# A data-only plugin: it registers switch profiles for the WandererBox Pro V3, Plus V3 and Dew Terminator
+# and has no panel, settings or connection of its own. Needs a Galileo with switch-profile support (PLUG-210).
+
+name        = "wandererbox"
+version     = "1.0.0"
+api_min     = "1"
+api_max     = "1"
+author      = "Gord Tulloch"
+description = "Use the Wanderer Astro WandererBox Pro V3, Plus V3 and Dew Terminator on Galileo's Switches page"
+tier        = "first_party"
+entry_point = "wandererbox"
