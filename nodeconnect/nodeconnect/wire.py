@@ -22,9 +22,9 @@ from collections.abc import Callable
 from typing import Any
 
 from nodeconnect import conflict
-from nodeconnect.apply import Change
+from nodeconnect.apply import DELETE, Change
 from nodeconnect.codec import PAGE_SIZE
-from nodeconnect.master import MasterService, Pushed, PushResult
+from nodeconnect.master import TOMB, MasterService, Pushed, PushResult
 
 PLUGIN = "nodeconnect"
 API = f"/{PLUGIN}/v1"
@@ -32,11 +32,12 @@ API = f"/{PLUGIN}/v1"
 
 # -- JSON forms ----------------------------------------------------------------------------------
 def change_to_json(c: Change) -> dict[str, Any]:
-    return {"table": c.table, "op": c.op, "key": c.key, "wire": c.wire, "rev": c.rev}
+    return {"table": c.table, "op": c.op, "key": c.key, "wire": c.wire, "rev": c.rev, "tomb": c.tomb}
 
 
 def change_from_json(d: dict[str, Any]) -> Change:
-    return Change(str(d["table"]), str(d["op"]), list(d["key"]), d.get("wire"), int(d.get("rev", 0)))
+    return Change(str(d["table"]), str(d["op"]), list(d["key"]), d.get("wire"), int(d.get("rev", 0)),
+                  tomb=int(d.get("tomb", 0)))
 
 
 def pushed_to_json(p: Pushed) -> dict[str, Any]:
@@ -99,14 +100,21 @@ class MasterEndpoint:
         tables = body.get("tables")
         pages: list[dict[str, Any]] = []
         for entry in self._master.changes_since(since, list(tables) if tables is not None else None):
-            changes = entry["changes"]
+            changes, table = entry["changes"], entry["table"]
+            rev, tomb = int(since.get(table, 0)), int(since.get(table + TOMB, 0))
             if not changes:
-                pages.append({"table": entry["table"], "rev": entry["rev"], "changes": []})
+                pages.append({"table": table, "rev": entry["rev"], "tomb": entry["tomb"], "changes": []})
                 continue
             for i in range(0, len(changes), self._page):
                 chunk = changes[i:i + self._page]
                 last = i + self._page >= len(changes)
-                pages.append({"table": entry["table"], "rev": entry["rev"] if last else chunk[-1].rev,
+                for c in chunk:                                   # how far this page really gets the node
+                    if c.op == DELETE:
+                        tomb = max(tomb, c.tomb)
+                    else:
+                        rev = max(rev, c.rev)
+                pages.append({"table": table, "rev": entry["rev"] if last else rev,
+                              "tomb": entry["tomb"] if last else tomb,
                               "changes": [change_to_json(c) for c in chunk]})
         return {"pages": pages}
 
@@ -148,14 +156,13 @@ def register_routes(routes, endpoint: MasterEndpoint) -> None:
     def make(method_name: str):
         method = getattr(endpoint, method_name)
 
-        async def handler(request, principal):
+        async def handler(peer, request):
             try:
                 body = await request.json() if request.can_read_body else {}
                 if not isinstance(body, dict):
                     raise WireError("body must be a JSON object")
-                # json.dumps up front: a result that cannot be serialised is our bug, not a 200
-                return web.Response(text=json.dumps(method(principal.peer_id, body)),
-                                    content_type="application/json")
+                # round-tripped here so a result that cannot be serialised is our error, not a 200
+                return json.loads(json.dumps(method(peer.peer_id, body)))
             except WireError as exc:
                 return web.json_response({"error": str(exc)}, status=exc.status)
             except ValueError:

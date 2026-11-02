@@ -12,7 +12,6 @@ from galileo.connect_link.peers import PeerStore
 from galileo.connect_link.secrets_store import MemorySecretStore
 from galileo.library.database import init_db
 from galileo.library.models.base import db as database
-from galileo.replication import SyncStore
 
 from nodeconnect.pairing import (
     NODE_PERMISSIONS,
@@ -23,6 +22,7 @@ from nodeconnect.pairing import (
     Reply,
 )
 from nodeconnect.roles import RoleError, RoleGuard
+from nodeconnect.store import NodeStore
 
 FP = "ab" * 32
 
@@ -61,7 +61,7 @@ class Node:
 def make_master(spokes=0, is_spoke=False):
     peers = PeerStore()
     pairing = PairingService(peers)
-    store = SyncStore()
+    store = NodeStore()
     desk = PairingDesk(peers, pairing, store, Node(master_designated=is_spoke, spokes=spokes).roles)
     return peers, pairing, store, desk
 
@@ -92,7 +92,7 @@ def test_tc_ncon_030_050_nothing_until_approved_then_exactly_the_node_permission
 def test_tc_ncon_060_token_is_in_the_credential_store_not_the_database(db):
     """NCON-060: the pairing token lives in the credential store; the node-local settings hold the
     address and fingerprint only, in a namespace core never replicates."""
-    from galileo.replication import registry
+    from galileo.replication.registry import NODE_LOCAL_NAMESPACES
     _peers, pairing, _store, desk = make_master()
     spoke = Node()
     client = PairingClient(lambda a: MasterStandIn(pairing), spoke.creds, spoke.roles, "n")
@@ -102,7 +102,7 @@ def test_tc_ncon_060_token_is_in_the_credential_store_not_the_database(db):
     token = spoke.creds.load().token
     rows = database.execute_sql("SELECT namespace, key, value FROM app_settings WHERE namespace = 'plugin.NodeConnect'").fetchall()
     assert {r[1] for r in rows} == {"master_address", "master_fingerprint"} and all(token not in str(r) for r in rows)
-    assert "plugin.NodeConnect" in registry.NODE_LOCAL_NAMESPACES
+    assert "plugin.NodeConnect" in NODE_LOCAL_NAMESPACES
     spoke.creds.clear()
     assert spoke.creds.load() is None and spoke.creds.designated() is None
 

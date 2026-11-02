@@ -6,9 +6,10 @@ transactions, snapshots and undo, run reports. Real core database and replicatio
 
 import pytest
 from galileo.library.models.base import db as database
-from galileo.replication import SyncStore, tracking
+from galileo.replication import tracking
 
 from nodeconnect.apply import DELETE, UPSERT, Applier, ApplyGate, Change, restore
+from nodeconnect.store import NodeStore
 
 
 @pytest.fixture
@@ -23,21 +24,23 @@ def db(tmp_path):
 
 @pytest.fixture
 def store(db):
-    return SyncStore()
+    return NodeStore()
 
 
 def obs(name="Home", rev=3):
-    return Change("observatories", UPSERT, [name], {"key": [name], "fields": {"timezone": "UTC"}}, rev)
+    return Change("observatories", UPSERT, [name], {"name": name, "timezone": "UTC"}, rev)
 
 
 def pier(name="Pier 1", observatory="Home", rev=4):
     return Change("piers", UPSERT, [observatory, name],
-                  {"key": [observatory, name], "fields": {"connect_on_startup": 1}}, rev)
+                  {"observatory": observatory, "name": name, "connect_on_startup": 1}, rev)
 
 
 def device(driver="indi_asi", host="pi.local", port=7624, rev=5, key=("Home", "Pier 1", "camera", "primary")):
-    return Change("device_configs", UPSERT, list(key), {"key": list(key), "fields": {
-        "driver": driver, "server": host, "port": port}}, rev)
+    obs_name, pier_name, category, slot = key
+    return Change("device_configs", UPSERT, [[obs_name, pier_name], category, slot], {
+        "pier": [obs_name, pier_name], "category": category, "slot": slot,
+        "driver": driver, "server": host, "port": port}, rev)
 
 
 def rows(sql, *p):
@@ -67,7 +70,7 @@ def test_tc_ncon_190_one_table_failing_rolls_back_alone(db, store):
     """NCON-190 / NCON-305: a table whose apply fails leaves none of its rows behind and does not
     stop the others; the failure is in the report."""
     bad = device(key=("Home", "Pier 1", "mount", "primary"))
-    bad.wire["fields"]["driver"] = None                              # violates NOT NULL
+    bad.wire["driver"] = None                              # violates NOT NULL
     report = Applier(store).apply([obs(), pier(), device(), bad])
     assert report.outcome == "partial" and "device_configs" in report.errors
     assert rows("SELECT * FROM device_configs") == []                # the good device rolled back with it
@@ -115,8 +118,8 @@ def test_tc_ncon_110_apply_never_rewrites_node_local_values_or_receives_secrets(
     database.execute_sql("INSERT INTO solver_settings (pier_id, executable, nova_api_key, backend) "
                          "VALUES (?, 'C:/a.exe', 'KEY', 'astap')", (pid,))
     database.execute_sql("UPDATE solver_settings SET dirty = 0")
-    wire = {"key": ["Home", "Pier 1"], "fields": {"backend": "astrometry", "executable": "/x", "nova_api_key": "THEIRS"}}
-    report = Applier(store).apply([Change("solver_settings", UPSERT, ["Home", "Pier 1"], wire, 8)])
+    wire = {"pier": ["Home", "Pier 1"], "backend": "astrometry", "executable": "/x", "nova_api_key": "THEIRS"}
+    report = Applier(store).apply([Change("solver_settings", UPSERT, [["Home", "Pier 1"]], wire, 8)])
     (s,) = rows("SELECT * FROM solver_settings")
     assert (s["backend"], s["executable"], s["nova_api_key"]) == ("astrometry", "C:/a.exe", "KEY")
     assert report.secrets_changed and all("KEY" not in str(snap) for snap in store.snapshot_get(report.run_id))
@@ -157,6 +160,6 @@ def test_tc_ncon_200_staged_rows_of_a_failed_table_are_retried(db, store):
     """NCON-200 / NCON-305: rows of a table that rolled back stay staged for the next attempt."""
     gate = ApplyGate(store, Applier(store), lambda: False, lambda cb: None)
     bad = device()
-    bad.wire["fields"]["driver"] = None
+    bad.wire["driver"] = None
     gate.submit("master", [obs(), pier(), bad])
     assert [r["table_name"] for r in store.inbox_pending()] == ["device_configs"]

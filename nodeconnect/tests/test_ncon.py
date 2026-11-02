@@ -8,7 +8,7 @@ plugin shell, sync engine, apply step and transfer worker are not built yet, so 
 have no tests."""
 
 import pytest
-from galileo.replication import registry
+from galileo.replication import ReplicableSpec, registry
 
 from nodeconnect import compat, conflict
 from nodeconnect.codec import PAGE_SIZE, ItemFilter, encode_pages, merge_fields
@@ -49,6 +49,11 @@ def test_tc_ncon_020_a_node_is_never_both_spoke_and_master():
     guard.check_approve_spoke()
 
 
+def make_pier():
+    from galileo.library.models import ObservatoryRecord, PierRecord
+    return PierRecord.create(observatory=ObservatoryRecord.create(name="Home", timezone="UTC"), name="Pier 1").id
+
+
 # -- registry, filtering, codec (NCON-100, 110, 210) ------------------------------------------
 @pytest.mark.requirement("TC-NCON-100")
 @pytest.mark.priority("MVP")
@@ -60,7 +65,7 @@ def test_tc_ncon_100_everything_registered_replicates_in_dependency_order(db):
 
     def ident(row):
         return row
-    registry.register(registry.ReplicableSpec("zz_plugin_table", ("id",), ident, ident, depends_on=("piers",)))
+    registry.register(ReplicableSpec("zz_plugin_table", ("id",), depends_on=("piers",), to_wire=ident, from_wire=ident))
     try:
         later = [s.table for s in registry.specs()]
         assert later.index("piers") < later.index("zz_plugin_table")
@@ -85,11 +90,11 @@ def test_tc_ncon_110_node_local_items_stay_home_unless_opted_in(db):
     assert {w["namespace"] for p in opted for w in p} == {"connect_link", "imaging"}
     # a node-local field in a wire row is removed unless opted in
     dev = registry.get("device_configs")
-    wire = {"key": ["o", "p", "c", "s"], "fields": {"driver": "d", "focuser_position": 5}}
-    assert ItemFilter().scrub(dev, wire)["fields"] == {"driver": "d"}
-    assert ItemFilter(["device_configs:focuser_position"]).scrub(dev, wire)["fields"] == wire["fields"]
-    assert "server" in dev.to_wire({"pier_id": 0, "category": "c", "slot": "s", "server": "h", "port": 1,
-                                    "driver": "d"})["fields"]
+    row = {"id": 1, "pier_id": make_pier(), "category": "c", "slot": "s", "driver": "d", "server": "h", "port": 1,
+           "focuser_position": 5, "dirty": 1, "base_rev": 0}
+    assert "focuser_position" not in ItemFilter().wire_of(dev, row) and ItemFilter().wire_of(dev, row)["server"] == "h"
+    assert ItemFilter(["device_configs:focuser_position"]).wire_of(dev, row)["focuser_position"] == 5
+    assert not {"id", "dirty", "base_rev"} & ItemFilter().wire_of(dev, row).keys()
 
 
 @pytest.mark.requirement("TC-NCON-210")
@@ -97,8 +102,9 @@ def test_tc_ncon_110_node_local_items_stay_home_unless_opted_in(db):
 def test_tc_ncon_210_secrets_are_never_sent_or_merged_unless_opted_in(db):
     """NCON-210: a secret field is stripped from outgoing rows and ignored on incoming ones."""
     solver = registry.get("solver_settings")
-    wire = {"key": ["o", "p"], "fields": {"backend": "astap", "nova_api_key": "K"}}
-    assert ItemFilter().scrub(solver, wire)["fields"] == {"backend": "astap"}
+    row = {"id": 1, "pier_id": make_pier(), "backend": "astap", "nova_api_key": "K"}
+    assert "nova_api_key" not in ItemFilter().wire_of(solver, row)
+    assert ItemFilter(["solver_settings:nova_api_key"]).wire_of(solver, row)["nova_api_key"] == "K"
     local = {"id": 1, "backend": "astrometry", "nova_api_key": "mine", "executable": "C:/a.exe"}
     incoming = {"backend": "astap", "nova_api_key": "theirs", "executable": "/usr/bin/astap"}
     merged = merge_fields(solver, local, incoming)

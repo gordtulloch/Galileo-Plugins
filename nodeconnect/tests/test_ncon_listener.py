@@ -22,7 +22,7 @@ from galileo.connect_link.secrets_store import MemorySecretStore
 from galileo.connect_link.server import LinkServer
 from galileo.library.database import init_db
 from galileo.library.models.base import db as database
-from galileo.replication import SyncStore, tracking
+from galileo.replication import RevisionIssuer
 
 from nodeconnect import conflict
 from nodeconnect.apply import Applier
@@ -30,6 +30,7 @@ from nodeconnect.link import LinkError, MasterLink, https_transport, open_transp
 from nodeconnect.master import MasterService
 from nodeconnect.pairing import CredentialStore, PairingClient, PairingDesk
 from nodeconnect.roles import RoleGuard
+from nodeconnect.store import NodeStore
 from nodeconnect.sync import column_fingerprints
 from nodeconnect.wire import MasterEndpoint, register_routes
 
@@ -57,20 +58,18 @@ class Listener:
 @pytest.fixture
 def net(tmp_path):
     init_db(tmp_path / "n.db")
-    tracking.configure(is_master=lambda: True)
     peers = PeerStore()
     pairing = PairingService(peers)
     certs = CertificateStore(MemorySecretStore(), "test-master")
     server = LinkServer(peers, pairing, certs, AuditLog())
-    store = SyncStore()
+    store = NodeStore()
     desk = PairingDesk(peers, pairing, store, RoleGuard(lambda: None, lambda: 0))
-    endpoint = MasterEndpoint(MasterService(store, Applier(store)), lambda: INFO, column_fingerprints)
+    endpoint = MasterEndpoint(MasterService(store, RevisionIssuer(lambda: True), Applier(store)), lambda: INFO, column_fingerprints)
     register_routes(server.routes, endpoint)
     listener = Listener(server)
     listener.run(server.start("127.0.0.1", 0))
     yield SimpleNet(server, desk, certs, store, f"https://127.0.0.1:{server.port}")
     listener.stop()
-    tracking.configure(is_master=lambda: False)
     if not database.is_closed():
         database.close()
     database.init(None)

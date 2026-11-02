@@ -1,0 +1,15 @@
+# NodeConnect plugin manifest -- installed by the Galileo Plugin Marketplace or via
+# Options > Plugins > Install from file.
+#
+# Keeps a spoke node's configuration in step with its Master over Connect Link, applying changes
+# between sessions and never during one. Needs a Galileo with Connect Link and replication support.
+
+name        = "nodeconnect"
+version     = "0.1.0"
+api_min     = "1"
+api_max     = "1"
+author      = "Gord Tulloch"
+description = "Keep this node's equipment and settings in step with a Master node over Connect Link"
+tier        = "first_party"
+nav_level   = "primary"
+entry_point = "nodeconnect"

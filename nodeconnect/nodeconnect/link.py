@@ -48,7 +48,7 @@ class MasterLink:
 
     def pull(self, since: dict[str, int], tables: list[str]) -> list[dict[str, Any]]:
         reply = self._send(f"{API}/pull", {"since": since, "tables": tables})
-        return [{"table": p["table"], "rev": int(p["rev"]),
+        return [{"table": p["table"], "rev": int(p["rev"]), "tomb": int(p.get("tomb", 0)),
                  "changes": [change_from_json(c) for c in p["changes"]]} for p in reply["pages"]]
 
     def push(self, pushed: list[Pushed], offset: conflict.ClockOffset) -> list[PushResult]:

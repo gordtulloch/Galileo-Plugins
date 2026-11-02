@@ -12,10 +12,11 @@ import pytest
 from galileo import settings_store
 from galileo.library.database import init_db
 from galileo.library.models.base import db as database
-from galileo.replication import SyncStore, tracking
+from galileo.replication import RevisionIssuer, tracking
 
 from nodeconnect.apply import Applier, ApplyGate
 from nodeconnect.master import MasterService
+from nodeconnect.store import NodeStore
 from nodeconnect.sync import BACKOFF, BLOCKED, IDLE, SpokeSync, column_fingerprints
 
 INFO = {"galileo": "t", "plugin_api": "1", "schema": 36, "protocol": 1}
@@ -34,9 +35,10 @@ class World:
         self.callbacks = []
         for side in self.paths:
             self.at(side)
-        self.master_store = self.in_("master", SyncStore)
-        self.spoke_store = self.in_("spoke", SyncStore)
-        self.master = MasterService(self.master_store, Applier(self.master_store))
+        self.master_store = self.in_("master", NodeStore)
+        self.spoke_store = self.in_("spoke", NodeStore)
+        self.master = MasterService(self.master_store, RevisionIssuer(lambda: self.current == "master"),
+                                    Applier(self.master_store))
         spoke_applier = Applier(self.spoke_store)
         gate = ApplyGate(self.spoke_store, spoke_applier, lambda: self.busy, self.callbacks.append)
         self.sync = SpokeSync(self.spoke_store, spoke_applier, gate, "master-1", lambda: self.info,
@@ -46,7 +48,6 @@ class World:
     def at(self, side):
         if self.current != side:
             init_db(self.paths[side])
-            tracking.configure(is_master=lambda: side == "master")
             self.current = side
 
     @contextlib.contextmanager
@@ -71,7 +72,6 @@ class World:
 
     def pull(self, since, tables):
         with self.side("master"):
-            tracking.configure(is_master=lambda: True)
             return self.master.changes_since(since, tables)
 
     def push(self, pushed, offset):
@@ -99,7 +99,6 @@ def world(tmp_path):
     if not database.is_closed():
         database.close()
     database.init(None)
-    tracking.configure(is_master=lambda: False)
 
 
 def seed_master(w):
@@ -188,8 +187,8 @@ def test_tc_ncon_170_the_later_edit_wins_and_the_loser_is_kept_in_a_snapshot(wor
     assert r.conflicts == 1
     assert q(world, "master", "SELECT driver FROM device_configs")[0]["driver"] == "spoke_edit"
     assert q(world, "spoke", "SELECT driver, dirty FROM device_configs")[0] == {"driver": "spoke_edit", "dirty": 0}
-    lost = [json.loads(x["data"])["old"]["driver"] for x in q(world, "master", "SELECT data FROM sync_snapshots")
-            if json.loads(x["data"])["table"] == "device_configs"]
+    lost = [json.loads(x["before"])["old"]["driver"] for x in q(world, "master", "SELECT before FROM sync_snapshots")
+            if x["before"] and json.loads(x["before"])["table"] == "device_configs"]
     assert "master_edit" in lost
     # now the other way: the Master edits later
     with world.side("master"):
@@ -220,14 +219,14 @@ def test_tc_ncon_180_deletions_propagate_both_ways_and_tombstones_wait_for_the_a
     with world.side("spoke"):
         assert tracking.tombstones("piers") == []                                 # accepted: no longer pending
     with world.side("master"):
-        assert len(tracking.tombstones("piers", committed_after_rev=0)) == 1
+        assert len(tracking.tombstones("piers")) == 1
         assert world.master.prune_tombstones(["never-synced-node"]) == 0          # that node holds them back
         world.master.prune_tombstones(["spoke-1"])
-        assert len(tracking.tombstones("piers", committed_after_rev=0)) == 1       # spoke has not yet seen it
+        assert len(tracking.tombstones("piers")) == 1       # spoke has not yet seen it
     world.sync.run_once(world)                                                    # it pulls its own commit and acks
     with world.side("master"):
         assert world.master.prune_tombstones(["spoke-1"]) >= 1
-        assert tracking.tombstones("piers", committed_after_rev=0) == []
+        assert tracking.tombstones("piers") == []
 
 
 @pytest.mark.requirement("TC-NCON-305")

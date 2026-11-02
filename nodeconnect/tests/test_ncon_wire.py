@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 from galileo.library.models.base import db as database
-from galileo.replication import registry, tracking
+from galileo.replication import registry
 from test_ncon_sync import INFO, World, q, seed_master
 
 from nodeconnect.link import MasterLink
@@ -38,7 +38,6 @@ class WireWorld(World):
         wire_body = json.loads(json.dumps(body))                       # must survive the trip
         op = path.rsplit("/", 1)[1]
         with self.side("master"):
-            tracking.configure(is_master=lambda: True)
             return json.loads(json.dumps(getattr(self.endpoint, op)(self.node_id, wire_body)))
 
 
@@ -49,7 +48,6 @@ def world(tmp_path):
     if not database.is_closed():
         database.close()
     database.init(None)
-    tracking.configure(is_master=lambda: False)
 
 
 @pytest.mark.requirement("TC-NCON-120")
@@ -160,8 +158,8 @@ def test_tc_ncon_050_routes_declare_least_permission_and_use_the_authenticated_p
             return {"revs": {"piers": 3}, "node_id": "someone-else"}
 
     with world.side("master"):
-        resp = asyncio.run(ack(Req(), SimpleNamespace(peer_id="spoke-9")))
-    assert resp.status == 200
+        resp = asyncio.run(ack(SimpleNamespace(peer_id="spoke-9"), Req()))
+    assert resp == {"ok": True}
     with world.side("master"):
         assert world.master_store.peer_get("spoke-9", "ack", {}) == {"piers": 3}
         assert not world.master_store.peer_get("someone-else", "ack", {})

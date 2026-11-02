@@ -30,19 +30,16 @@ class ItemFilter:
 
     def allow_row(self, spec, row: dict[str, Any]) -> bool:
         """False for a row of a node-local kind (for example the link's own settings)."""
-        if not spec.exclude_row(row):
+        if spec.replicates(row):
             return True
         return self.opted_in(spec.table, "*")
 
-    def scrub(self, spec, wire: dict[str, Any]) -> dict[str, Any]:
-        """The wire form with node-local and secret fields removed unless opted in. Defence in depth:
-        a spec's own ``to_wire`` should already omit them."""
-        fields = wire.get("fields")
-        if not isinstance(fields, dict):
-            return wire
-        banned = (spec.node_local_fields | spec.secret_fields)
-        kept = {k: v for k, v in fields.items() if k not in banned or self.opted_in(spec.table, k)}
-        return {**wire, "fields": kept}
+    def wire_of(self, spec, row: dict[str, Any]) -> dict[str, Any]:
+        """The row as sent: bookkeeping removed, and node-local and secret fields too unless the user
+        opted that field in."""
+        banned = {"id", "dirty", "base_rev"} | {
+            f for f in (spec.node_local_fields | spec.secret_fields) if not self.opted_in(spec.table, f)}
+        return spec.to_wire({k: v for k, v in row.items() if k not in banned})
 
 
 def encode_pages(spec, rows: Iterable[dict[str, Any]], item_filter: ItemFilter,
@@ -52,7 +49,7 @@ def encode_pages(spec, rows: Iterable[dict[str, Any]], item_filter: ItemFilter,
     for row in rows:
         if not item_filter.allow_row(spec, row):
             continue
-        page.append(item_filter.scrub(spec, spec.to_wire(row)))
+        page.append(item_filter.wire_of(spec, row))
         if len(page) >= page_size:
             yield page
             page = []

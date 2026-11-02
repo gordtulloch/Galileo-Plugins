@@ -12,6 +12,7 @@ anywhere resumes from the last point that really committed. A node that has neve
 
 from __future__ import annotations
 
+import json
 import logging
 import random
 import time
@@ -19,12 +20,12 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from galileo.replication import registry, tracking
+from galileo.replication import tracking
 
-from nodeconnect import compat, conflict
+from nodeconnect import compat, conflict, repl
 from nodeconnect.apply import DELETE, UPSERT, Applier, ApplyGate, Change
 from nodeconnect.codec import ItemFilter
-from nodeconnect.master import Pushed, PushResult
+from nodeconnect.master import TOMB, Pushed, PushResult
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ class SyncResult:
 
 def column_fingerprints() -> dict[str, str]:
     from galileo.library.models.base import db
-    return {s.table: compat.column_fingerprint(c.name for c in db.get_columns(s.table)) for s in registry.specs()}
+    return {s.table: compat.column_fingerprint(c.name for c in db.get_columns(s.table)) for s in repl.specs()}
 
 
 class SpokeSync:
@@ -73,9 +74,10 @@ class SpokeSync:
     def last_rev(self) -> dict[str, int]:
         return dict(self._store.peer_get(self._master, "last_rev", {}) or {})
 
-    def _advance(self, table: str, rev: int) -> None:
+    def _advance(self, table: str, rev: int, tomb: int = 0) -> None:
         revs = self.last_rev()
         revs[table] = max(revs.get(table, 0), rev)
+        revs[table + TOMB] = max(revs.get(table + TOMB, 0), tomb)
         self._store.peer_set(self._master, "last_rev", revs)
 
     @staticmethod
@@ -121,7 +123,7 @@ class SpokeSync:
                 if page["table"] in report.errors:
                     result.message = f"{page['table']}: {report.errors[page['table']]}"
                     continue
-            self._advance(page["table"], page["rev"])
+            self._advance(page["table"], page["rev"], page.get("tomb", 0))
 
         # 2. push this node's own edits and deletions (NCON-140)
         pushed = self._collect(tables)
@@ -139,40 +141,39 @@ class SpokeSync:
     # -- local changes ---------------------------------------------------------------------------------
     def _collect(self, tables: list[str]) -> list[Pushed]:
         out: list[Pushed] = []
-        for spec in registry.specs():
+        for spec in repl.specs():
             if spec.table not in tables:
                 continue
             for row in tracking.dirty_rows(spec.table):
                 if not self._filter.allow_row(spec, row):
                     continue
-                wire = self._filter.scrub(spec, spec.to_wire(row))
-                out.append(Pushed(spec.table, UPSERT, spec.wire_key(row) if spec.wire_key else [],
-                                  wire, row["base_rev"], row["modified"]))
+                out.append(Pushed(spec.table, UPSERT, repl.key_of_row(spec, row),
+                                  self._filter.wire_of(spec, row), row["base_rev"], row["modified"]))
             for t in tracking.tombstones(spec.table):
-                out.append(Pushed(spec.table, DELETE, t["natural_key"], None, t["rev"], t["deleted_at"]))
+                if repl.tombstone_replicates(spec, t["key"]):
+                    out.append(Pushed(spec.table, DELETE, t["key"], None, t["rev"], t["deleted_at"]))
         return out
 
     def _apply_answers(self, results: list[PushResult], result: SyncResult) -> None:
         """Clear what the Master accepted; adopt (and snapshot) what it decided against us."""
         overrides: list[Change] = []
+        answered: set[tuple[str, str]] = set()
         for r in results:
-            spec = registry.get(r.table)
-            if spec is None or spec.find_local is None:
+            spec = repl.spec_for(r.table)
+            if spec is None:
                 continue
+            answered.add((r.table, json.dumps(r.key)))
             if r.winner == conflict.NODE:                     # accepted: clean, at the Master's revision
-                if r.op == DELETE:
-                    for t in tracking.tombstones(r.table):
-                        if t["natural_key"] == r.key:
-                            tracking.drop_tombstone(t["id"])
-                else:
-                    local = spec.find_local(r.key)
+                if r.op != DELETE:
+                    local = repl.find_local(spec, r.key)
                     if local is not None:
-                        tracking.mark_clean(r.table, {"id": local["id"]}, r.rev)
+                        tracking.mark_clean(r.table, "id = ?", (local["id"],), r.rev)
             else:                                             # the Master's value stands over ours
                 overrides.append(Change(r.table, r.op, r.key, r.wire, r.rev, force=True))
-                for t in tracking.tombstones(r.table):        # our deletion lost: it is no longer pending
-                    if t["natural_key"] == r.key:
-                        tracking.drop_tombstone(t["id"])
+        for table in {t for t, _ in answered}:                # a decided deletion is no longer pending
+            for t in tracking.tombstones(table):
+                if (table, json.dumps(t["key"])) in answered:
+                    repl.drop_tombstone(t["id"])
         if overrides:
             report = self._applier.apply(overrides, peer_id=self._master)
             result.run_ids.append(report.run_id)

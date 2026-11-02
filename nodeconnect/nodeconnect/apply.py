@@ -21,9 +21,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from galileo.net import is_loopback
-from galileo.replication import registry, tracking
+from galileo.replication import tracking
 from galileo.replication.registry import RegistryError
 
+from nodeconnect import repl
 from nodeconnect.codec import ItemFilter, merge_fields
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ class Change:
     wire: dict[str, Any] | None = None
     rev: int = 0
     force: bool = False         # the Master decided against this node's pending edit: overwrite it
+    tomb: int = 0               # a deletion's tombstone id on the Master (its pull cursor)
 
 
 @dataclass
@@ -120,7 +122,7 @@ class Applier:
         for c in changes:
             by_table[c.table].append(c)
         touched: list[str] = []
-        specs = registry.specs()
+        specs = repl.specs()
         # upserts parents-first, then deletions children-first, so a deleted parent cannot cascade
         # away a child that was about to be updated, and the children are snapshotted before it goes
         for ops, ordered in ((UPSERT, specs), (DELETE, list(reversed(specs)))):
@@ -157,9 +159,9 @@ class Applier:
     # -- one table, inside its own transaction ---------------------------------------------------
     def _apply_table(self, spec, batch: list[Change], report: RunReport) -> None:
         cols = _columns(spec.table)
-        with tracking.applying():
+        with tracking.apply_mode():
             for change in batch:
-                local = spec.find_local(change.key) if spec.find_local else None
+                local = repl.find_local(spec, change.key)
                 if local is not None and local.get("dirty") and not change.force:
                     report.skipped_dirty.append(_label(change))
                     continue
@@ -172,7 +174,7 @@ class Applier:
                     continue
                 try:
                     row = spec.from_wire(change.wire or {})
-                except RegistryError as exc:
+                except (RegistryError, LookupError) as exc:
                     report.deferred.append(f"{_label(change)}: {exc}")
                     continue
                 self._flag_loopback(report, change, row)
@@ -213,8 +215,8 @@ class Applier:
         old = {k: v for k, v in local.items() if k not in spec.secret_fields}
         if any(k in local for k in spec.secret_fields):
             report.secrets_changed.append(_label(change))
-        key = spec.wire_key(local) if spec.wire_key else change.key
-        wire = spec.to_wire(local)
+        key = repl.key_of_row(spec, local)
+        wire = spec.wire(local)
         self._store.snapshot_save(report.run_id, {"table": spec.table, "key": key, "kind": kind,
                                                   "old": old, "wire": wire})
 
@@ -223,7 +225,7 @@ class Applier:
         fk = _CHILD_FK.get(table)
         if fk is None:
             return
-        for spec in registry.specs():
+        for spec in repl.specs():
             if table not in spec.depends_on:
                 continue
             for child in _rows(f"SELECT * FROM {spec.table} WHERE {fk} = ?", row_id):
@@ -244,16 +246,16 @@ def restore(store, run_id: str) -> int:
     n = 0
     for snap in reversed(store.snapshot_get(run_id)):
         d = snap["data"]
-        spec = registry.get(d["table"])
-        if spec is None or spec.find_local is None:
+        spec = repl.spec_for(d["table"])
+        if spec is None:
             continue
         cols = _columns(d["table"])
         old = {k: v for k, v in d["old"].items() if k in cols and k not in ("id", "dirty", "modified", "rev", "base_rev")}
-        local = spec.find_local(d["key"])
+        local = repl.find_local(spec, d["key"])
         if local is None:
             try:                                           # re-resolve foreign keys: ids differ once a parent was re-created
                 row = spec.from_wire(d["wire"])
-            except RegistryError:
+            except (RegistryError, LookupError):
                 continue
             row.update({k: v for k, v in old.items() if k in spec.node_local_fields})
             for k in ("modified", "rev", "base_rev"):
