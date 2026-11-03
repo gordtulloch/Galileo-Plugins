@@ -1,0 +1,446 @@
+{
+  "components": {
+    "securitySchemes": {
+      "connectLinkToken": {
+        "description": "The token issued when the node paired.",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "Configuration sync between a spoke and its Master, over Connect Link's authenticated, encrypted transport.",
+    "title": "NodeConnect",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/nodeconnect/v1/ack": {
+      "post": {
+        "description": "Needs the `config.read` permission.",
+        "operationId": "nodeconnect_ack",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "revs": {
+                    "additionalProperties": {
+                      "type": "integer"
+                    },
+                    "type": "object"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "description": "A malformed request or a table the Master does not replicate."
+          },
+          "401": {
+            "description": "No valid token (missing, revoked or forged). No data is returned."
+          },
+          "403": {
+            "description": "The node's pairing does not carry the permission."
+          },
+          "409": {
+            "description": "This node is a spoke of another Master and does not serve nodes."
+          }
+        },
+        "security": [
+          {
+            "connectLinkToken": []
+          }
+        ],
+        "summary": "Tell the Master which revisions the node has applied, so it can release tombstones.",
+        "x-permission": "config.read"
+      }
+    },
+    "/nodeconnect/v1/handshake": {
+      "post": {
+        "description": "Needs the `config.read` permission.",
+        "operationId": "nodeconnect_handshake",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "info": {
+                    "description": "The node's version information.",
+                    "type": "object"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "fingerprints": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    },
+                    "info": {
+                      "type": "object"
+                    },
+                    "received": {
+                      "type": "number"
+                    },
+                    "sent": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "info",
+                    "fingerprints",
+                    "received",
+                    "sent"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "description": "A malformed request or a table the Master does not replicate."
+          },
+          "401": {
+            "description": "No valid token (missing, revoked or forged). No data is returned."
+          },
+          "403": {
+            "description": "The node's pairing does not carry the permission."
+          },
+          "409": {
+            "description": "This node is a spoke of another Master and does not serve nodes."
+          }
+        },
+        "security": [
+          {
+            "connectLinkToken": []
+          }
+        ],
+        "summary": "Exchange versions, column fingerprints and clock readings.",
+        "x-permission": "config.read"
+      }
+    },
+    "/nodeconnect/v1/pull": {
+      "post": {
+        "description": "Needs the `config.read` permission.",
+        "operationId": "nodeconnect_pull",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "since": {
+                    "additionalProperties": {
+                      "type": "integer"
+                    },
+                    "description": "Revision per table; '<table>#t' is the tombstone cursor.",
+                    "type": "object"
+                  },
+                  "tables": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": [
+                      "array",
+                      "null"
+                    ]
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "pages": {
+                      "items": {
+                        "properties": {
+                          "changes": {
+                            "items": {
+                              "properties": {
+                                "key": {
+                                  "description": "The natural key; a parent is named by its own natural key.",
+                                  "type": "array"
+                                },
+                                "op": {
+                                  "enum": [
+                                    "upsert",
+                                    "delete"
+                                  ],
+                                  "type": "string"
+                                },
+                                "rev": {
+                                  "type": "integer"
+                                },
+                                "table": {
+                                  "type": "string"
+                                },
+                                "tomb": {
+                                  "description": "A deletion's tombstone id.",
+                                  "type": "integer"
+                                },
+                                "wire": {
+                                  "description": "The row in wire form (no secrets, no node-local fields).",
+                                  "type": [
+                                    "object",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "table",
+                                "op",
+                                "key"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "rev": {
+                            "type": "integer"
+                          },
+                          "table": {
+                            "type": "string"
+                          },
+                          "tomb": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "table",
+                          "rev",
+                          "tomb",
+                          "changes"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "pages"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "description": "A malformed request or a table the Master does not replicate."
+          },
+          "401": {
+            "description": "No valid token (missing, revoked or forged). No data is returned."
+          },
+          "403": {
+            "description": "The node's pairing does not carry the permission."
+          },
+          "409": {
+            "description": "This node is a spoke of another Master and does not serve nodes."
+          }
+        },
+        "security": [
+          {
+            "connectLinkToken": []
+          }
+        ],
+        "summary": "Changes above the node's per-table revisions, a table at a time in pages.",
+        "x-permission": "config.read"
+      }
+    },
+    "/nodeconnect/v1/push": {
+      "post": {
+        "description": "Needs the `config.write` permission.",
+        "operationId": "nodeconnect_push",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "changes": {
+                    "items": {
+                      "properties": {
+                        "base_rev": {
+                          "description": "The Master revision this edit was made on; a stale one is the conflict signal.",
+                          "type": "integer"
+                        },
+                        "key": {
+                          "type": "array"
+                        },
+                        "modified": {
+                          "description": "Seconds since the epoch on the node's clock.",
+                          "type": "number"
+                        },
+                        "op": {
+                          "enum": [
+                            "upsert",
+                            "delete"
+                          ],
+                          "type": "string"
+                        },
+                        "table": {
+                          "type": "string"
+                        },
+                        "wire": {
+                          "type": [
+                            "object",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "table",
+                        "op",
+                        "key",
+                        "base_rev",
+                        "modified"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "offset": {
+                    "properties": {
+                      "error": {
+                        "type": "number"
+                      },
+                      "seconds": {
+                        "type": "number"
+                      }
+                    },
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "changes"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "results": {
+                      "items": {
+                        "properties": {
+                          "key": {
+                            "type": "array"
+                          },
+                          "op": {
+                            "type": "string"
+                          },
+                          "rev": {
+                            "type": "integer"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "table": {
+                            "type": "string"
+                          },
+                          "winner": {
+                            "enum": [
+                              "",
+                              "node",
+                              "master"
+                            ],
+                            "type": "string"
+                          },
+                          "wire": {
+                            "type": [
+                              "object",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "table",
+                          "key",
+                          "status",
+                          "winner",
+                          "rev"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "results"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "description": "A malformed request or a table the Master does not replicate."
+          },
+          "401": {
+            "description": "No valid token (missing, revoked or forged). No data is returned."
+          },
+          "403": {
+            "description": "The node's pairing does not carry the permission."
+          },
+          "409": {
+            "description": "This node is a spoke of another Master and does not serve nodes."
+          }
+        },
+        "security": [
+          {
+            "connectLinkToken": []
+          }
+        ],
+        "summary": "Send the node's own edits; the Master decides each and answers with the result.",
+        "x-permission": "config.write"
+      }
+    }
+  }
+}

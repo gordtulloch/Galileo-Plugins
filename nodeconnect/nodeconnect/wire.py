@@ -74,7 +74,10 @@ class MasterEndpoint:
         self, master: MasterService, local_info: Callable[[], dict[str, Any]],
         fingerprints: Callable[[], dict[str, str]], is_master: Callable[[], bool] = lambda: True,
         clock: Callable[[], float] = time.time, page_size: int = PAGE_SIZE,
+        on_committed: Callable[[str], object] | None = None,
     ) -> None:
+        """*on_committed(node_id)* is called after a push that the Master accepted, so the other nodes can be hinted."""
+        self._on_committed = on_committed
         self._master, self._info, self._fingerprints = master, local_info, fingerprints
         self._is_master, self._clock, self._page = is_master, clock, page_size
 
@@ -130,6 +133,12 @@ class MasterEndpoint:
             results = self._master.receive_push(node_id, pushed, offset)
         except ValueError as exc:                                  # a table the Master does not replicate
             raise WireError(str(exc)) from exc
+        if self._on_committed is not None and any(r.status == "committed" for r in results):
+            try:
+                self._on_committed(node_id)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception("NodeConnect: could not hint the other nodes")
         return {"results": [result_to_json(r) for r in results]}
 
     def ack(self, node_id: str, body: dict[str, Any]) -> dict[str, Any]:

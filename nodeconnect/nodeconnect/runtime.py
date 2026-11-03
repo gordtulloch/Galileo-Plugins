@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -27,7 +28,7 @@ from nodeconnect.pairing import (
     PairingDesk,
 )
 from nodeconnect.roles import SPOKE, RoleGuard
-from nodeconnect.sync import BACKOFF, SpokeSync, SyncResult
+from nodeconnect.sync import BACKOFF, BLOCKED, SpokeSync, SyncResult
 from nodeconnect.wire import MasterEndpoint, register_routes
 
 logger = logging.getLogger(__name__)
@@ -92,7 +93,9 @@ class Runtime:
         make_transfer: Callable[[Credentials], Callable[[], int]] | None = None,
         on_paired: Callable[[Credentials | None], None] | None = None,
         make_history: Callable[[Credentials], Callable[[], int]] | None = None,
-        history_endpoint: Any = None,
+        history_endpoint: Any = None, store: Any = None,
+        make_hints: Callable[[Credentials, Callable[[], None]], Any] | None = None, watch: Any = None,
+        alerts: Any = None,
     ) -> None:
         self._host, self._creds, self._roles = host, creds, roles
         self.desk, self.endpoint = desk, endpoint
@@ -102,6 +105,13 @@ class Runtime:
         self._make_transfer, self._on_paired = make_transfer, on_paired
         self._make_history, self._history_endpoint = make_history, history_endpoint
         self.client, self.settings = client, settings       # PairingClient (spoke side) and the plugin's settings
+        self._make_hints, self._watch = make_hints, watch
+        self._hints: Any = None                               # HintListener: the Master's stream, a spoke only
+        self._frames: Any = None                              # FrameWatcher: new captures start a transfer pass
+        self.alerts = alerts                                  # NCON-340: notifications, or None
+        self.last_success: float | None = None                # when a sync last completed (NCON-330)
+        self.streams: Any = None
+        self.store = store                                  # the NodeStore: run reports and undo for the Options page
         self.worker: SyncWorker | None = None
         self._acquired = False
 
@@ -117,10 +127,20 @@ class Runtime:
         else:
             self._host.acquire(PLUGIN, NODE_PERMISSIONS, self._install)
             self._acquired = True
+            if self._watch is not None:
+                self._watch.start()                          # hint the nodes when this Master's own settings change
 
     def stop(self) -> None:
         """Stop the worker and give the listener back (disable, or before a role change)."""
         worker, self.worker = self.worker, None
+        frames, self._frames = self._frames, None
+        if frames is not None:
+            frames.stop()
+        hints, self._hints = self._hints, None
+        if hints is not None:
+            hints.stop()
+        if self._watch is not None:
+            self._watch.stop()
         if worker is not None:
             worker.stop()
             if self._on_paired:
@@ -133,6 +153,7 @@ class Runtime:
                 logger.exception("NodeConnect could not release Connect Link")
 
     def _install(self, server) -> None:
+        self.streams = getattr(server, "streams", None)     # the hub the hints are published on
         register_routes(server.routes, self.endpoint)
         transfers = getattr(server, "transfers", None)
         if transfers is not None:
@@ -166,8 +187,27 @@ class Runtime:
                     logger.exception("NodeConnect frame transfer failed")
             return result
         self.worker = SyncWorker(one_pass, self._interval,
-                                 lambda: self._backoff(max(1, sync.failures)))
+                                 lambda: self._backoff(max(1, sync.failures)),
+                                 on_result=self._on_result)
         self.worker.start()
+        if transfer is not None:                             # NCON-420: send frames soon after they are taken
+            from nodeconnect.frames import FrameWatcher
+            self._frames = FrameWatcher(self.worker.sync_now)
+            self._frames.start()
+        if self._make_hints is not None:                     # NCON-150: the Master tells us when there is something to pull
+            self._hints = self._make_hints(creds, self.worker.sync_now)
+            self._hints.start()
+
+    def _on_result(self, result: SyncResult) -> None:
+        if result.state not in (BACKOFF, BLOCKED):
+            self.last_success = time.time()
+        if self.alerts is not None:
+            self.alerts.sync_result(result)
+
+    def status(self):
+        """Where this node stands, for the status view (NCON-330)."""
+        from nodeconnect.status import collect
+        return collect(self)
 
     @property
     def master_address(self) -> str:
@@ -205,6 +245,10 @@ def _https_link(creds: Credentials):
     return MasterLink(https_transport(creds.address, creds.token, creds.fingerprint))
 
 
+async def _on_loop(fn):
+    return fn()
+
+
 def build_runtime(ctx) -> Runtime:
     """Wire a Runtime from core's services (the real-world composition; tests build their own)."""
     from galileo import settings_store
@@ -221,20 +265,35 @@ def build_runtime(ctx) -> Runtime:
 
     from nodeconnect.apply import Applier, ApplyGate
     from nodeconnect.master import MasterService
+    from nodeconnect.reports import retention as report_retention
     from nodeconnect.store import NodeStore
     from nodeconnect.sync import column_fingerprints
 
     tracking.reset_apply_mode()                              # a crash mid-apply must not leave tracking off
     host = get_host()
     service = host.service
-    store = NodeStore()
+    store = NodeStore(retention=lambda: report_retention(settings))
     creds = CredentialStore(KeyringSecretStore(), settings_store.get_setting, settings_store.set_setting,
                             settings_store.delete_setting)
     roles = RoleGuard(creds.designated, lambda: len(service.peers.list(PLUGIN)))
     desk = PairingDesk(service.peers, service.pairing, store, roles)
     applier = Applier(store, on_changed=publish_settings_changed)
     master = MasterService(store, RevisionIssuer(lambda: roles.role() != SPOKE), applier)
-    endpoint = MasterEndpoint(master, local_info, column_fingerprints, is_master=lambda: roles.role() != SPOKE)
+    from nodeconnect.alerts import Alerts
+    from nodeconnect.push import (
+        HintBroadcaster,
+        HintListener,
+        MasterWatch,
+        dirty_signature,
+    )
+    alerts = Alerts(ctx.settings())
+    runtime_ref: list = []                                   # the Runtime owns the stream hub the hints go on
+    broadcaster = HintBroadcaster(
+        lambda: runtime_ref[0].streams if runtime_ref else None,
+        lambda: [n["peer_id"] for n in desk.nodes() if not n["revoked"]],
+        post=lambda fn: host.call(_on_loop(fn)))
+    endpoint = MasterEndpoint(master, local_info, column_fingerprints, is_master=lambda: roles.role() != SPOKE,
+                              on_committed=lambda node: broadcaster.notify(node))
     busy = get_session_busy()
 
     def make_sync(c: Credentials) -> SpokeSync:
@@ -279,9 +338,15 @@ def build_runtime(ctx) -> Runtime:
             remove_retriever()
 
     client = PairingClient(open_transport, creds, roles, platform.node() or "Galileo node", platform.system())
-    return Runtime(host, creds, roles, desk, endpoint, make_sync,
+    runtime = Runtime(host, creds, roles, desk, endpoint, make_sync,
                    lambda: float(settings.get("sync_interval_s", DEFAULT_INTERVAL_S) or DEFAULT_INTERVAL_S),
                    client=client, settings=settings,
                    make_transfer=make_transfer, on_paired=on_paired,
                    make_history=make_history,
-                   history_endpoint=HistoryEndpoint(get_history(), get_node_id))
+                   history_endpoint=HistoryEndpoint(get_history(), get_node_id), store=store,
+                      make_hints=lambda c, nudge: HintListener(c.address, c.token, c.fingerprint, nudge),
+                      watch=MasterWatch(broadcaster, dirty_signature,
+                                        on_tick=lambda: alerts.pairing_requests(r["request_id"] for r in desk.pending())),
+                      alerts=alerts)
+    runtime_ref.append(runtime)
+    return runtime

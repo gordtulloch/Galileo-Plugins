@@ -164,3 +164,24 @@ def test_tc_ncon_050_routes_declare_least_permission_and_use_the_authenticated_p
         assert world.master_store.peer_get("spoke-9", "ack", {}) == {"piers": 3}
         assert not world.master_store.peer_get("someone-else", "ack", {})
     assert registry.get("piers") is not None
+
+
+@pytest.mark.requirement("TC-NCON-NFR-030")
+@pytest.mark.priority("MVP")
+def test_tc_ncon_nfr_030_openapi_describes_exactly_the_routes_served():
+    """NCON-NFR-030: the /nodeconnect/v1 OpenAPI document lists every served route with its permission and a 401, lists
+    no other, and the committed copy matches what the code generates."""
+    import json
+    from pathlib import Path
+
+    from nodeconnect import openapi
+    from nodeconnect.wire import API, OPERATIONS
+
+    doc = openapi.document()
+    assert set(doc["paths"]) == {f"{API}/{suffix}" for suffix, _m, _p in OPERATIONS}
+    for suffix, _method, permission in OPERATIONS:
+        post = doc["paths"][f"{API}/{suffix}"]["post"]
+        assert post["x-permission"] == permission and "401" in post["responses"] and post["security"]
+        assert set(doc["paths"][f"{API}/{suffix}"]) == {"post"}                      # nothing is served by GET
+    committed = Path(__file__).resolve().parents[1] / "api" / "nodeconnect-v1.openapi.json"
+    assert json.loads(committed.read_text(encoding="utf-8")) == doc, "regenerate: python -m nodeconnect.openapi"

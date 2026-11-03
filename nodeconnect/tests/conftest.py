@@ -7,6 +7,7 @@
 def pytest_configure(config):
     config.addinivalue_line("markers", "requirement(id): RTM test-case ID this test implements")
     config.addinivalue_line("markers", "priority(level): MVP, P2, or P3")
+    config.addinivalue_line("markers", "integration: needs a second process or an external service")
 
 
 import pytest

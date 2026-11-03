@@ -33,11 +33,32 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from nodeconnect.alerts import (
+    CONFLICT,
+    FAILING_AFTER_MIN,
+    MAX_FAILING_AFTER_MIN,
+    MIN_FAILING_AFTER_MIN,
+    PAIRING_REQUEST,
+    SYNC_FAILING,
+    failing_after_s,
+)
 from nodeconnect.pairing import APPROVED, PENDING, PairingFailed, PendingPairing
+from nodeconnect.reports import (
+    MAX_RETENTION,
+    MIN_RETENTION,
+    SETTING,
+    detail,
+    headline,
+    retention,
+    undo,
+    undone,
+)
 from nodeconnect.roles import MASTER, SPOKE, RoleError
+from nodeconnect.status import lines as status_lines
 
 logger = logging.getLogger(__name__)
 
+_NL = chr(10)
 _REFRESH_MS = 3000
 _POLL_MS = 2000
 
@@ -64,18 +85,6 @@ class _Task(QObject):
             self.done.emit(result)
 
 
-def _describe(result) -> str:
-    if result is None:
-        return "No sync has run yet."
-    parts = [f"{result.state.capitalize()}"]
-    if result.message:
-        parts.append(result.message)
-    parts.append(f"{result.pulled} received, {result.pushed} sent, {result.conflicts} conflict(s)")
-    if result.deferred:
-        parts.append("changes are waiting for the session to end")
-    return " - ".join(parts)
-
-
 class NodeConnectOptions(QWidget):
     def __init__(self, runtime, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -89,6 +98,8 @@ class NodeConnectOptions(QWidget):
         layout.addWidget(self.role_label)
         layout.addWidget(self._build_spoke_box())
         layout.addWidget(self._build_master_box())
+        layout.addWidget(self._build_reports_box())
+        layout.addWidget(self._build_alerts_box())
         layout.addStretch(1)
 
         self._poll = QTimer(self)
@@ -204,6 +215,107 @@ class NodeConnectOptions(QWidget):
         self.remove_btn.clicked.connect(lambda: self._desk(self.nodes, "peer_id", "delete"))
         return self.master_box
 
+
+    def _build_reports_box(self) -> QGroupBox:
+        """The run reports (NCON-320): what each sync did, and Undo for one that changed this node's rows."""
+        box = QGroupBox("Recent syncs")
+        v = QVBoxLayout(box)
+        self.runs = QListWidget()
+        self.runs.setMaximumHeight(120)
+        v.addWidget(self.runs)
+        self.run_detail = QLabel("")
+        self.run_detail.setWordWrap(True)
+        self.run_detail.setObjectName("StatusHint")
+        v.addWidget(self.run_detail)
+        row = QHBoxLayout()
+        self.undo_btn = QPushButton("Undo this sync")
+        row.addWidget(self.undo_btn)
+        row.addStretch(1)
+        self.keep_spin = QSpinBox()
+        self.keep_spin.setRange(MIN_RETENTION, MAX_RETENTION)
+        self.keep_spin.setValue(retention(self._rt.settings))
+        row.addWidget(QLabel("Keep reports:"))
+        row.addWidget(self.keep_spin)
+        v.addLayout(row)
+        self.runs.currentItemChanged.connect(lambda *_: self._show_run())
+        self.undo_btn.clicked.connect(self._on_undo)
+        self.keep_spin.editingFinished.connect(self._save_keep)
+        return box
+
+    def _build_alerts_box(self) -> QGroupBox:
+        """Which events raise a notification (NCON-340). They go out over Options > Notifications."""
+        box = QGroupBox("Notifications")
+        form = QFormLayout(box)
+        st = self._rt.settings
+        self.alert_checks: dict[str, QCheckBox] = {}
+        for key, label in ((SYNC_FAILING, "Sync has been failing"), (PAIRING_REQUEST, "A pairing request is waiting"),
+                           (CONFLICT, "A conflict was resolved")):
+            check = QCheckBox(label)
+            check.setChecked(bool(st.get(key, True)) if st is not None else True)
+            check.toggled.connect(lambda on, key=key: st.set(key, bool(on)) if st is not None else None)
+            form.addRow(check)
+            self.alert_checks[key] = check
+        self.failing_spin = QSpinBox()
+        self.failing_spin.setRange(MIN_FAILING_AFTER_MIN, MAX_FAILING_AFTER_MIN)
+        self.failing_spin.setSuffix(" min")
+        self.failing_spin.setValue(int(failing_after_s(st) // 60))
+        self.failing_spin.editingFinished.connect(
+            lambda: st.set(FAILING_AFTER_MIN, self.failing_spin.value()) if st is not None else None)
+        form.addRow("Report a failing sync after:", self.failing_spin)
+        return box
+
+    def _save_keep(self) -> None:
+        st = self._rt.settings
+        if st is not None:
+            st.set(SETTING, self.keep_spin.value())
+
+    def _selected_run(self) -> dict | None:
+        item = self.runs.currentItem()
+        return item.data(0x0100) if item is not None else None
+
+    def _show_run(self) -> None:
+        run = self._selected_run()
+        self.run_detail.setText(detail(run) if run else "")
+        store = self._rt.store
+        can_undo = run is not None and store is not None
+        if run is not None and store is not None:
+            can_undo = store.has_snapshots(run["run_id"]) and not undone(store, run["run_id"])
+        self.undo_btn.setEnabled(can_undo)
+
+    def _on_undo(self) -> None:
+        run, store = self._selected_run(), self._rt.store
+        if run is None or store is None:
+            return
+        try:
+            restored = undo(store, run["run_id"])
+        except Exception:
+            logger.exception("NodeConnect: undo failed")
+            self.run_detail.setText("Could not undo that sync - see the log.")
+            return
+        self.run_detail.setText(f"Undone: {restored} row(s) put back. They will sync like any other edit.")
+        self.undo_btn.setEnabled(False)
+
+    def _refresh_runs(self) -> None:
+        store = self._rt.store
+        if store is None:
+            return
+        try:
+            reports = store.reports(retention(self._rt.settings))
+        except Exception:
+            logger.exception("NodeConnect: could not read the run reports")
+            return
+        current = self._selected_run()
+        self.runs.blockSignals(True)
+        self.runs.clear()
+        for report in reports:
+            item = QListWidgetItem(headline(report))
+            item.setData(0x0100, report)
+            self.runs.addItem(item)
+            if current is not None and report["run_id"] == current["run_id"]:
+                self.runs.setCurrentItem(item)
+        self.runs.blockSignals(False)
+        self._show_run()
+
     # -- state ---------------------------------------------------------------------------------
     def refresh(self) -> None:
         role = self._rt.role
@@ -224,29 +336,18 @@ class NodeConnectOptions(QWidget):
             pass                                             # the pairing text is owned by _poll_pairing
         elif paired:
             self.code_label.setText("")
-            self.status_label.setText(_describe(self._rt.last_result) + self._queue_text())
+            self.status_label.setText(_NL.join(status_lines(self._rt.status())))
         elif self._rt.master_address:
             self.status_label.setText("A Master is chosen but not paired yet. Press Pair with Master.")
         else:
             self.status_label.setText("")
+        self._refresh_runs()
         desk = self._rt.desk
         if desk is None or role == SPOKE:
             return
         self._fill(self.requests, desk.pending(),
                    lambda r: f"{r['code']}  -  {r['name']} ({r['platform']}) from {r['source']}", "request_id")
         self._fill(self.nodes, desk.nodes(), self._node_text, "peer_id")
-
-    def _queue_text(self) -> str:
-        try:
-            from galileo.replication import SyncStore
-
-            from nodeconnect.transfer import queue_counts
-            q = queue_counts(SyncStore())
-        except Exception:  # noqa: BLE001 - the status line never breaks the page
-            return ""
-        err = self._rt.last_error
-        waiting = f"Images waiting: {q['items']} ({q['bytes'] / 1e6:.1f} MB)" if q["items"] else "No images waiting."
-        return "\n" + waiting + (f"\nLast problem: {err}" if err else "")
 
     @staticmethod
     def _node_text(n: dict) -> str:

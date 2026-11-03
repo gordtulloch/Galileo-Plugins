@@ -71,3 +71,35 @@ Stops the selected node from syncing. It can be paired again later.
 ## Remove node
 
 Forgets the selected node completely, including what it had already received.
+
+## Recent syncs
+
+What each recent sync did: when it ran, whether it finished or only partly, and how many records it added, changed or deleted. Select one to see the detail — counts per table, anything left to the Master because it was edited here too, anything deferred, and any table that failed. Secret values are never shown, only the names of secrets that changed.
+
+## Undo this sync
+
+Puts back the records the selected sync replaced or deleted on this computer. They are restored as ordinary edits, so they sync to the Master like anything else you change. Available only for a sync that kept something to put back, and once per sync.
+
+## Keep reports
+
+How many sync reports (and the saved before-copies that make Undo possible) are kept, between 10 and 1000. Older ones are removed after each sync.
+
+## Notifications
+
+Which events raise a notification. They are sent through Options > Notifications, so the e-mail, text-message or webhook recipients are set up once, there. Each is switched on or off separately.
+
+## Sync has been failing
+
+Sends one notification when syncing with the Master has failed continuously for the time set below, and again only after a sync has worked in between. A single failed attempt that recovers on its own sends nothing.
+
+## A pairing request is waiting
+
+On a Master, sends a notification when a computer asks to pair, so the request is not left waiting. Each request is reported once.
+
+## A conflict was resolved
+
+Sends a notification when a sync found the same record changed on both computers and picked one. The replaced value is kept under Recent syncs and can be undone.
+
+## Report a failing sync after
+
+How many minutes of continuous failure to wait before reporting (1 to 1440, default 30).
