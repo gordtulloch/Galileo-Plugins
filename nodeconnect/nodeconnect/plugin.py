@@ -21,6 +21,7 @@ class NodeConnectPlugin(PluginBase):
     name = "NodeConnect"
     version = __version__
     api_version = "1"
+    options_label = "NodeConnect"
 
     def __init__(self) -> None:
         self.runtime: Runtime | None = None
@@ -49,3 +50,9 @@ class NodeConnectPlugin(PluginBase):
                 self.runtime.stop()
         except Exception:
             logger.exception("NodeConnect could not change state")
+
+    def build_options_page(self):
+        if self.runtime is None:
+            return None
+        from nodeconnect.ui import NodeConnectOptions
+        return NodeConnectOptions(self.runtime)

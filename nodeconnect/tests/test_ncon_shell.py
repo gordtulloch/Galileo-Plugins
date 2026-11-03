@@ -197,3 +197,37 @@ def test_tc_ncon_520_the_manifest_matches_the_plugin_and_the_loader_finds_the_cl
     assert manifest.name == "nodeconnect" and manifest.resolved_entry_point == "nodeconnect"
     assert manifest.version == nodeconnect.__version__ and manifest.nav_level == "primary"
     assert issubclass(nodeconnect.NodeConnectPlugin, PluginBase) and nodeconnect.NodeConnectPlugin.name
+
+
+@pytest.mark.requirement("TC-NCON-330")
+@pytest.mark.priority("MVP")
+def test_tc_ncon_330_options_page_is_tagged_and_every_control_has_help(qapp, settings_db):
+    """NCON-330: the Options page exists and every control on it has an inline-help entry."""
+    from galileo import help as help_content
+    from galileo.ui.help import audit, tag_help_screen
+
+    from nodeconnect.ui import NodeConnectOptions
+    help_content.register_dir(Path(nodeconnect.__file__).parent / "help")
+    rt, _host, _sync = make_runtime()
+    assert NodeConnectPlugin.options_label == "NodeConnect"
+    page = tag_help_screen(NodeConnectOptions(rt), "plugin.NodeConnect")
+    assert help_content.load("plugin.NodeConnect") is not None
+    assert audit(page) == []
+
+
+@pytest.mark.requirement("TC-NCON-440")
+@pytest.mark.priority("MVP")
+def test_tc_ncon_440_transfer_runs_after_each_sync_and_never_fails_it(settings_db):
+    """NCON-440/530: frames are sent after each configuration pass; a transfer error cannot fail the pass."""
+    rt, _host, sync = make_runtime(designated="https://m:1", paired=True)
+    calls, seen = [], []
+    def job():
+        calls.append(1)
+        raise RuntimeError("link down")
+    rt._make_transfer = lambda c: job
+    rt._on_paired = seen.append
+    rt.start()
+    wait_for(lambda: len(calls) >= 2)
+    rt.stop()
+    assert len(calls) >= 2 and sync.calls >= 2                    # the sync kept going despite the errors
+    assert seen[0] is not None and seen[-1] is None               # retriever installed, then removed on stop

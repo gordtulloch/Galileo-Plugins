@@ -88,12 +88,20 @@ class Runtime:
         interval: Callable[[], float] = lambda: DEFAULT_INTERVAL_S,
         make_link: Callable[[Credentials], Any] | None = None,
         backoff: Callable[[int], float] = SpokeSync.backoff_delay,
+        client: Any = None, settings: Any = None,
+        make_transfer: Callable[[Credentials], Callable[[], int]] | None = None,
+        on_paired: Callable[[Credentials | None], None] | None = None,
+        make_history: Callable[[Credentials], Callable[[], int]] | None = None,
+        history_endpoint: Any = None,
     ) -> None:
         self._host, self._creds, self._roles = host, creds, roles
         self.desk, self.endpoint = desk, endpoint
         self._make_sync, self._interval = make_sync, interval
         self._make_link = make_link or _https_link
         self._backoff = backoff
+        self._make_transfer, self._on_paired = make_transfer, on_paired
+        self._make_history, self._history_endpoint = make_history, history_endpoint
+        self.client, self.settings = client, settings       # PairingClient (spoke side) and the plugin's settings
         self.worker: SyncWorker | None = None
         self._acquired = False
 
@@ -115,6 +123,8 @@ class Runtime:
         worker, self.worker = self.worker, None
         if worker is not None:
             worker.stop()
+            if self._on_paired:
+                self._on_paired(None)
         if self._acquired:
             self._acquired = False
             try:
@@ -124,15 +134,64 @@ class Runtime:
 
     def _install(self, server) -> None:
         register_routes(server.routes, self.endpoint)
+        transfers = getattr(server, "transfers", None)
+        if transfers is not None:
+            from nodeconnect.ingest import FrameIngest, register_ingest_route
+            register_ingest_route(server.routes, FrameIngest(transfers.object_path))
+        if self._history_endpoint is not None:
+            from nodeconnect.history import register_history_route
+            register_history_route(server.routes, self._history_endpoint)
 
     def _start_spoke(self) -> None:
         creds = self._creds.load()
         if creds is None:
             return                                           # designated but not yet paired: nothing to sync with
         sync, link = self._make_sync(creds), self._make_link(creds)
-        self.worker = SyncWorker(lambda: sync.run_once(link), self._interval,
+        transfer = self._make_transfer(creds) if self._make_transfer else None
+        history = self._make_history(creds) if self._make_history else None
+        if self._on_paired:
+            self._on_paired(creds)
+
+        def one_pass() -> SyncResult:
+            result = sync.run_once(link)
+            if history is not None:
+                try:
+                    history()                                # small records first, then the frames
+                except Exception:
+                    logger.exception("NodeConnect history transfer failed")
+            if transfer is not None:
+                try:
+                    transfer()                               # frames go after configuration, and never fail the pass
+                except Exception:
+                    logger.exception("NodeConnect frame transfer failed")
+            return result
+        self.worker = SyncWorker(one_pass, self._interval,
                                  lambda: self._backoff(max(1, sync.failures)))
         self.worker.start()
+
+    @property
+    def master_address(self) -> str:
+        return self._creds.designated() or ""
+
+    @property
+    def paired(self) -> bool:
+        return self._creds.load() is not None
+
+    @property
+    def last_result(self) -> SyncResult | None:
+        return self.worker.last if self.worker is not None else None
+
+    @property
+    def last_error(self) -> str:
+        r = self.last_result
+        return r.message if r is not None and r.state == BACKOFF else ""
+
+    def sync_interval(self) -> float:
+        return float(self._interval())
+
+    def set_sync_interval(self, seconds: float) -> None:
+        if self.settings is not None:
+            self.settings.set("sync_interval_s", max(30.0, float(seconds)))
 
     def sync_now(self) -> bool:
         if self.worker is None:
@@ -154,6 +213,7 @@ def build_runtime(ctx) -> Runtime:
     from galileo.connect_link.secrets_store import KeyringSecretStore
     from galileo.replication import (
         RevisionIssuer,
+        SyncStore,
         get_session_busy,
         publish_settings_changed,
         tracking,
@@ -181,6 +241,47 @@ def build_runtime(ctx) -> Runtime:
         gate = ApplyGate(store, applier, busy.is_busy, busy.on_idle)
         return SpokeSync(store, applier, gate, c.master_id, local_info)
 
+    import platform
+
+    from nodeconnect.link import open_transport
+    from nodeconnect.pairing import PairingClient
+
     settings = ctx.settings()
+    from galileo.history import get_history
+    from galileo.node_identity import get_node_id
+
+    from nodeconnect.history import HistoryEndpoint
+    from nodeconnect.transfer import (
+        LibraryAdapter,
+        install_retriever,
+        make_transfer_job,
+        remove_retriever,
+    )
+    library = LibraryAdapter(busy.is_busy)
+
+    def make_transfer(c: Credentials):
+        return make_transfer_job(SyncStore(), library, c, settings, busy.is_busy)
+
+    def make_history(c: Credentials):
+        from galileo.history import get_history
+        from galileo.node_identity import get_node_id
+
+        from nodeconnect.history import HistoryPush
+        from nodeconnect.link import https_transport
+        send = https_transport(c.address, c.token, c.fingerprint)
+        push = HistoryPush(get_history(), SyncStore(), c.master_id, get_node_id(), send)
+        return push.run
+
+    def on_paired(c: Credentials | None) -> None:
+        if c is not None:
+            install_retriever(c)
+        else:
+            remove_retriever()
+
+    client = PairingClient(open_transport, creds, roles, platform.node() or "Galileo node", platform.system())
     return Runtime(host, creds, roles, desk, endpoint, make_sync,
-                   lambda: float(settings.get("sync_interval_s", DEFAULT_INTERVAL_S) or DEFAULT_INTERVAL_S))
+                   lambda: float(settings.get("sync_interval_s", DEFAULT_INTERVAL_S) or DEFAULT_INTERVAL_S),
+                   client=client, settings=settings,
+                   make_transfer=make_transfer, on_paired=on_paired,
+                   make_history=make_history,
+                   history_endpoint=HistoryEndpoint(get_history(), get_node_id))
