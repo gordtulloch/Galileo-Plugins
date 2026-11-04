@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "galileo-plugin-webconnect"
+version = "0.1.0"
+description = "WebConnect: browser control of a Galileo observatory (work in progress)"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Gord Tulloch", email = "gtulloch@sunrisesd.ca" }]
+requires-python = ">=3.11"
+dependencies = ["galileo"]
+
+[project.optional-dependencies]
+test = ["pytest>=7", "pytest-asyncio>=0.23"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["webconnect*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"

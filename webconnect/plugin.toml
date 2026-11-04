@@ -1,0 +1,15 @@
+# WebConnect plugin manifest -- installed by the Galileo Plugin Marketplace or via
+# Options > Plugins > Install from file.
+#
+# Browser control of a running Galileo observatory over Connect Link. Master node only.
+
+name        = "webconnect"
+version     = "0.1.0"
+api_min     = "1"
+api_max     = "1"
+author      = "Gord Tulloch"
+description = "Operate this observatory from a web browser on the local network"
+tier        = "first_party"
+nav_level   = "primary"
+entry_point = "webconnect"
+requires    = ["flask>=3", "gevent>=24"]
