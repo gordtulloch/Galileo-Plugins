@@ -54,5 +54,13 @@
     "tier": "first_party",
     "author": "Gord Tulloch",
     "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/wandererbox-v1.0.0/galileo-plugin-wandererbox-1.0.0.zip"
+  },
+  {
+    "name": "webconnect",
+    "description": "Operate this observatory from a web browser on the local network",
+    "version": "0.1.0",
+    "tier": "first_party",
+    "author": "Gord Tulloch",
+    "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/webconnect-v0.1.0/galileo-plugin-webconnect-0.1.0.zip"
   }
 ]
