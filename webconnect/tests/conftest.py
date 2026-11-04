@@ -22,3 +22,11 @@ def link_db(tmp_path):
     if not database.is_closed():
         database.close()
     database.init(None)
+
+
+@pytest.fixture(scope="session")
+def qapp():
+    pytest.importorskip("PySide6")
+    from PySide6.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication([])
+    yield app

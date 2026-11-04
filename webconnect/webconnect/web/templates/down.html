@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Galileo is not running{% endblock %}
+{% block head %}<meta http-equiv="refresh" content="10">{% endblock %}
+{% block body %}
+<h1>Galileo is not running</h1>
+<p>This page will try again by itself.</p>
+<p>{{ reason }}</p>
+{% endblock %}

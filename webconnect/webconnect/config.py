@@ -66,5 +66,5 @@ class WebConnectConfig:
         return asdict(self)
 
     @classmethod
-    def keys(cls) -> list[str]:
+    def field_names(cls) -> list[str]:
         return [f.name for f in fields(cls)]

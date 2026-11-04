@@ -31,7 +31,7 @@ class LinkClient(Protocol):
     def pair_request(self, name: str, platform: str) -> dict[str, Any]: ...
     def pair_poll(self, request_id: str) -> dict[str, Any]: ...
     def call(self, method: str, route: str, *, client: str = "", body: dict[str, Any] | None = None,
-             query: dict[str, str] | None = None, source: str = "") -> dict[str, Any]: ...
+             query: dict[str, str] | None = None, source: str = "", timeout: float | None = None) -> dict[str, Any]: ...
     def reachable(self) -> bool: ...
 
 
@@ -62,8 +62,9 @@ class HttpLinkClient:
         self._host, self._port = parts.hostname, parts.port or 443
         self._fingerprint, self._token, self._timeout = fingerprint, service_token, timeout
 
-    def _send(self, method: str, path: str, headers: dict[str, str], body: dict[str, Any] | None) -> dict[str, Any]:
-        conn = _PinnedHTTPS(self._host, self._port, self._fingerprint, self._timeout)
+    def _send(self, method: str, path: str, headers: dict[str, str], body: dict[str, Any] | None,
+              timeout: float | None = None) -> dict[str, Any]:
+        conn = _PinnedHTTPS(self._host, self._port, self._fingerprint, timeout or self._timeout)
         try:
             data = json.dumps(body).encode() if body is not None else None
             if data is not None:
@@ -93,20 +94,20 @@ class HttpLinkClient:
         return self._send("GET", f"{CONNECT_API}/pair/{request_id}", {}, None)
 
     def call(self, method: str, route: str, *, client: str = "", body: dict[str, Any] | None = None,
-             query: dict[str, str] | None = None, source: str = "") -> dict[str, Any]:
+             query: dict[str, str] | None = None, source: str = "", timeout: float | None = None) -> dict[str, Any]:
         path = PLUGIN_API + route + (("?" + urlencode(query)) if query else "")
         headers = {"Authorization": f"Bearer {self._token}"}
         if client:
             headers[ACTING] = client
         if source:
             headers["X-Client-Address"] = source
-        out = self._send(method, path, headers, body)
+        out = self._send(method, path, headers, body, timeout)
         if out.get("http") == 401:
             raise LinkError("The Master refused this web application's credential.")
         return out
 
     def reachable(self) -> bool:
         try:
-            return self._send("GET", f"{CONNECT_API}/hello", {}, None).get("http", 0) < 500
+            return self._send("GET", f"{CONNECT_API}/pair/probe", {}, None).get("http", 0) == 200   # unauthenticated
         except LinkError:
             return False

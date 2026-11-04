@@ -1,6 +1,6 @@
 # WebConnect
 
-Browser control of a running Galileo observatory — the web counterpart of the MobileConnect apps. **Status: in design; there is no code here yet.**
+Browser control of a running Galileo observatory — the web counterpart of the MobileConnect apps. **Status: early build** (the first operating screen, built from the catalogue, is in; not yet tried in a real browser). The Master half (browser pairing, roles, delegated operations through Galileo's request pipeline) and the web half (sessions, CSRF, security headers, its own TLS process) exist and are tested, as are the Options page for approving browsers and the live-update (Server-Sent Events) stream; the operating screens, the page's use of that stream and spoke relay do not exist yet. See `CHANGELOG.md` for exactly what is and is not done.
 
 WebConnect is built in this folder (the plugin, its Flask applications and the Debian packaging) together with the core facilities in the [Galileo](https://github.com/gordtulloch/Galileo) repository. There is no separate WebConnect repository: the former `Galileo-WebConnect` repository was retired on 2026-10-31 and held only a preliminary scope document.
 

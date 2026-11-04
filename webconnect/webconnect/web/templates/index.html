@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block body %}
+<section id="pairing" hidden>
+  <h1>Connect this device</h1>
+  <p>Name this device, then approve it on the Galileo computer by checking the code matches.</p>
+  <form id="pair-form"><input id="device-name" maxlength="60" placeholder="e.g. Observatory tablet" required>
+  <button type="submit">Ask to connect</button></form>
+  <p id="pair-code" aria-live="polite"></p>
+</section>
+<section id="piers" hidden><h1>Observatory</h1><ul id="pier-list"></ul></section>
+<section id="pier-view"></section>
+{% endblock %}

@@ -12,6 +12,7 @@ refusal and audit with the **browser** as the actor. Nothing registered here cha
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 ACTING_HEADER = "X-Acting-Client"
 NOT_RUNNING = "Galileo's control surface is not running"
+MAX_EVENT_WAIT_S = 8.0                     # a long poll never holds a worker thread longer than this
 
 
 def plain(value: Any) -> Any:
@@ -65,6 +67,7 @@ class Delegate:
         add(PLUGIN, "GET", f"{API}/piers", "view", self.piers)
         add(PLUGIN, "GET", f"{API}/catalogue", "view", self.catalogue)
         add(PLUGIN, "GET", f"{API}/state", "view", self.state)
+        add(PLUGIN, "GET", f"{API}/events", "view", self.events)
         add(PLUGIN, "POST", f"{API}/ops", "view", self.ops)             # a Viewer reaches it, is refused and audited
         add(PLUGIN, "POST", f"{API}/lease/acquire", "view", self.lease_acquire)
         add(PLUGIN, "POST", f"{API}/lease/take", "view", self.lease_take)
@@ -156,6 +159,26 @@ class Delegate:
             return {"status": "ok", "seq": seq, "values": plain(values)}
         except Denied as exc:
             return self._error(exc)
+
+    async def events(self, carrier, request) -> dict[str, Any]:
+        """Events after ``after`` (an id, or ``latest`` to start from now), waiting up to ``wait`` seconds for
+        news (WCON-310, 350). The wait runs on a worker thread so it never holds up Connect Link's own loop."""
+        try:
+            self._client(carrier, request)
+            feed = self._service().feed
+            if feed is None:
+                raise Denied(503, NOT_RUNNING)
+        except Denied as exc:
+            return self._error(exc)
+        raw = request.query.get("after", "latest")
+        if raw == "latest":
+            return {"status": "ok", "entries": [], "last": feed.last_id, "gap": False, "closed": False}
+        try:
+            after, wait = int(raw), float(request.query.get("wait", "0") or 0)
+        except ValueError:
+            return self._error(Denied(400, "after must be a number or 'latest', and wait a number of seconds"))
+        wait = min(MAX_EVENT_WAIT_S, max(0.0, wait))
+        return {"status": "ok", **plain(await asyncio.to_thread(feed.read, max(0, after), wait))}
 
     async def ops(self, carrier, request) -> dict[str, Any]:
         try:

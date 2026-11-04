@@ -320,3 +320,41 @@ def test_tc_wcon_700_the_service_credential_has_exactly_one_live_copy(world):
     old = world.service_id
     new_id, _ = world.browsers.mint_service_credential()
     assert world.peers.get(old).revoked_at is not None and world.peers.get(new_id).revoked_at is None
+
+
+@pytest.mark.requirement("TC-WCON-050")
+@pytest.mark.priority("MVP")
+def test_tc_wcon_050_options_page_is_tagged_and_every_control_has_help(qapp, world):
+    """WCON-050/940: the page exists, shows pairing requests and browsers, and every control has an inline-help entry."""
+    from pathlib import Path
+
+    from galileo import help as help_content
+    from galileo.ui.help import audit, tag_help_screen
+
+    import webconnect
+    from webconnect.plugin import Runtime
+    from webconnect.ui import WebConnectOptions
+
+    class Settings(dict):
+        def set(self, k, v):
+            self[k] = v
+
+    help_content.register_dir(Path(webconnect.__file__).parent / "help")
+    rt = Runtime(object(), world.browsers, world.delegate, settings=Settings(), audit=world.gateway._audit)
+    world.pairing.request(PLUGIN, "Phone", "browser", "Android", "10.0.0.7")
+    peer = world.pair("Tablet")
+    page = tag_help_screen(WebConnectOptions(rt), "plugin.WebConnect")
+    assert help_content.load("plugin.WebConnect") is not None
+    assert audit(page) == []
+    assert page.requests.count() == 1 and page.approved.count() == 1
+    page.approved.setCurrentRow(0)
+    page.promote_btn.click()
+    assert world.browsers.browsers()[0]["role"] == OPERATOR
+    page.revoke_btn.click()
+    assert world.browsers.browsers()[0]["revoked"] and world.peers.get(peer).revoked_at is not None
+    page.requests.setCurrentRow(0)
+    page.approve_btn.click()
+    assert page.requests.count() == 0 and page.approved.count() == 2
+    page.port_spin.setValue(9443)
+    page.save_btn.click()
+    assert rt.options().port == 9443
