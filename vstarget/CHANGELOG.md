@@ -4,6 +4,10 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+
+- **No more `ImportError: sys.meta_path is None` traceback when Galileo exits.** `PlanStore.close()` did an `import contextlib` which fails when called from `__del__` during interpreter shutdown; it now closes the connection with a plain try/except and no import. No visible behaviour change otherwise (no help/wiki impact).
+
 ## [1.0.1]
 
 ### Changed

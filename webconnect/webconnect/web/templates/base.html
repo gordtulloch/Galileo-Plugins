@@ -3,14 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#1c2126">
 <title>{% block title %}Galileo{% endblock %}</title>
 {% block head %}{% endblock %}
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
 <body>
-<header id="strip" aria-live="polite"><span id="who"></span> <span id="conn"></span></header>
+<header id="strip"><span class="brand">Galileo</span><button type="button" id="pier-name" class="plain" title="Switch Pier"></button><span class="spacer"></span><span id="who"></span><span id="conn" aria-live="polite"></span><button type="button" id="theme-btn" class="theme-btn" aria-label="Change theme" title="Theme: dark, light, night">&#9788;</button></header>
 <main>{% block body %}{% endblock %}</main>
+<nav class="tabs" id="tabs" aria-label="Pages" hidden></nav>
 <script type="module" src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

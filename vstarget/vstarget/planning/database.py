@@ -132,9 +132,12 @@ class PlanStore:
         self._conn.executescript(_PLAN_SCHEMA)
 
     def close(self) -> None:
-        import contextlib
-        with contextlib.suppress(Exception):
+        # No imports here: this runs from __del__ at interpreter shutdown,
+        # when `import` raises "sys.meta_path is None".
+        try:
             self._conn.close()
+        except Exception:  # noqa: BLE001, S110
+            pass
 
     def __del__(self) -> None:
         self.close()

@@ -26,7 +26,8 @@ from webconnect.browsers import role_of
 logger = logging.getLogger(__name__)
 
 ACTING_HEADER = "X-Acting-Client"
-NOT_RUNNING = "Galileo's control surface is not running"
+NOT_RUNNING = ("Galileo's control surface is not running. On the Galileo computer turn on Options > Equipment > "
+               "\"Hold devices in the device service\" and restart Galileo.")
 MAX_EVENT_WAIT_S = 8.0                     # a long poll never holds a worker thread longer than this
 
 

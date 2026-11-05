@@ -332,3 +332,51 @@ def test_tc_wcon_800_the_pier_screen_is_served_and_builds_nothing_from_strings(s
         text = (Path(app.static_folder) / name).read_text(encoding="utf-8")
         assert not re.search(r"innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function", text), name
         assert not re.search(r"https?://", text), name
+
+
+@pytest.mark.requirement("TC-WCON-1040")
+@pytest.mark.priority("MVP")
+def test_tc_wcon_1040_a_reloaded_page_signs_in_again_and_can_still_pair(stack):
+    """WCON-1040: a reload keeps the session cookie but loses the CSRF token; signing in and asking to pair must
+    still work without it, and /api/v1/me hands the token back."""
+    world, _, app = stack
+    b = Browser(app)
+    pair_and_sign_in(world, b)
+    token = b.csrf
+    b.csrf = ""                                                       # the page was reloaded
+    assert b.post("/api/v1/piers").status_code in (403, 405)          # state-changing calls still need the token
+    assert b.get("/api/v1/me").get_json()["csrf"] == token
+    again = b.post("/signin")
+    assert again.status_code == 200 and again.get_json()["csrf"]
+    b.csrf = ""
+    assert b.post("/pair/request", {"name": "Another"}).status_code != 403
+
+
+@pytest.mark.requirement("TC-WCON-800")
+@pytest.mark.priority("MVP")
+def test_tc_wcon_800_the_page_and_every_script_it_imports_are_served_without_inline_code(stack):
+    """WCON-800: the page and each module it imports are served, and none of it relies on inline script or style,
+    which the content-security-policy would refuse."""
+    import re
+    from pathlib import Path
+
+    _, _, app = stack
+    b = Browser(app)
+    html = b.get("/").get_data(as_text=True)
+    assert 'id="tabs"' in html and 'id="theme-btn"' in html
+    assert not re.search(r"<script(?![^>]*\bsrc=)", html) and " style=" not in html
+    static = Path(app.static_folder)
+    seen, todo = set(), ["app.js"]
+    while todo:
+        name = todo.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        resp = b.get(f"/static/{name}")
+        assert resp.status_code == 200, name
+        source = resp.get_data(as_text=True)
+        assert ".style." not in source and "innerHTML" not in source, name
+        todo += re.findall(r'from "\./([\w.]+\.js)"', source)
+    assert {"app.js", "pier.js", "mount.js", "operations.js", "dom.js", "common.js", "camera.js", "focuser.js", "guiding.js",
+            "solve.js", "sessions.js", "history.js"} <= seen
+    assert (static / "app.css").is_file()

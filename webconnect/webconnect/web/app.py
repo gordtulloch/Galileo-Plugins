@@ -61,7 +61,10 @@ def create_app(link: LinkClient, settings: WebSettings | None = None) -> Flask:
     def _load_session():
         g.wc_session = sessions.get(request.cookies.get(cfg.cookies.session, ""))
         s = g.wc_session
+        # /signin and /pair/request are how a page with no CSRF token yet (a reload, a stale cookie) gets one;
+        # they are same-origin checked and /signin issues a fresh session, so the old token proves nothing there.
         if (s is not None and request.method not in ("GET", "HEAD", "OPTIONS")
+                and request.path not in ("/signin", "/pair/request")
                 and not csrf_ok(s, request.headers.get("X-CSRF-Token", ""))):
             return jsonify({"status": "refused", "reason": "bad CSRF token"}), 403
         return None

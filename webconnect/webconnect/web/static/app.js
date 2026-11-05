@@ -4,6 +4,32 @@ const $ = (id) => document.getElementById(id);
 let csrf = "";
 let current = null;
 
+// Theme: dark and light as on the desktop, and night (red only) for the dark-adapted eye. A browser-side preference.
+const THEMES = ["dark", "light", "night"];
+function applyTheme(name) {
+  document.documentElement.dataset.theme = name;
+  localStorage.setItem("wc-theme", name);
+  $("theme-btn").title = `Theme: ${name} (tap to change)`;
+}
+applyTheme(THEMES.includes(localStorage.getItem("wc-theme")) ? localStorage.getItem("wc-theme") : "dark");
+$("theme-btn").addEventListener("click", () => applyTheme(THEMES[(THEMES.indexOf(document.documentElement.dataset.theme) + 1) % THEMES.length]));
+
+function open(pier) {
+  current?.close();
+  current = openPier(api, pier, $("pier-view"), $("tabs"));
+  $("piers").hidden = true;
+  localStorage.setItem("wc-pier", pier.id);
+}
+
+$("pier-name").addEventListener("click", () => {          // back to the Pier list
+  current?.close();
+  current = null;
+  $("pier-view").replaceChildren();
+  $("pier-name").textContent = "";
+  localStorage.removeItem("wc-pier");
+  $("piers").hidden = false;
+});
+
 async function api(path, options = {}) {
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   if (csrf) headers["X-CSRF-Token"] = csrf;
@@ -12,23 +38,29 @@ async function api(path, options = {}) {
 }
 
 async function showPiers() {
-  const { body } = await api("/api/v1/piers");
+  const { http, body } = await api("/api/v1/piers");
   const list = $("pier-list");
   list.replaceChildren();
+  if (!(body.piers || []).length) {
+    const li = document.createElement("li");
+    li.textContent = body.reason || (http === 200 ? "Galileo has no Piers to show yet." : `Could not load the Piers (${http}).`);
+    list.append(li);
+  }
   for (const pier of body.piers || []) {
     const li = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = pier.name || pier.id;
-    button.addEventListener("click", () => {
-      current?.close();
-      current = openPier(api, pier, $("pier-view"));
-    });
+    button.addEventListener("click", () => open(pier));
     li.append(button);
     list.append(li);
   }
-  $("piers").hidden = false;
   $("pairing").hidden = true;
+  const list_ = body.piers || [];
+  const remembered = list_.find((p) => p.id === localStorage.getItem("wc-pier"));
+  const only = list_.length === 1 ? list_[0] : remembered;     // one Pier, or the last one used: go straight in
+  if (only) open(only);
+  else $("piers").hidden = false;
 }
 
 async function signIn() {
@@ -54,4 +86,14 @@ $("pair-form").addEventListener("submit", async (event) => {
   if (body.code) pollPairing();
 });
 
-if (!(await signIn())) $("pairing").hidden = false;
+// A reload keeps the session cookie but loses the CSRF token; ask for it back before falling back to a sign-in.
+async function resume() {
+  const { http, body } = await api("/api/v1/me");
+  if (http !== 200 || !body.csrf) return false;
+  csrf = body.csrf;
+  $("who").textContent = `${body.name} (${body.role})`;
+  await showPiers();
+  return true;
+}
+
+if (!(await resume()) && !(await signIn())) $("pairing").hidden = false;

@@ -244,6 +244,10 @@ class WebConnectOptions(QWidget):
         if up and isinstance(link, dict) and not link.get("running"):
             self.status_label.setText("Running, but browsers cannot pair: Connect Link is not listening. "
                                       "Turn it on in Options > Connect Link.")
+        elif up and not self._surface_running():
+            self.status_label.setText("Running, but there is nothing to operate: the control surface is not running. "
+                                      "Turn on Options > Equipment > \"Hold devices in the device service\" "
+                                      "and restart Galileo.")
         self._fill(self.requests, [(r["request_id"], f"{r['name']} ({r['platform']}) - code {r['code']}")
                                    for r in rt.browsers.pending()])
         rows = []
@@ -254,6 +258,14 @@ class WebConnectOptions(QWidget):
         self._fill(self.approved, rows)
         self._sync_buttons()
         self._fill_activity()
+
+    @staticmethod
+    def _surface_running() -> bool:
+        try:
+            from galileo.control_surface.service import get_control_surface
+            return get_control_surface() is not None
+        except Exception:
+            return True                                   # cannot tell: do not raise a false alarm
 
     def _sync_buttons(self) -> None:
         """Buttons that act on a selected row are available only while one is selected."""
