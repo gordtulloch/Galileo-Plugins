@@ -30,6 +30,11 @@ def bind_address(cfg: WebConnectConfig) -> str:
     return "0.0.0.0" if cfg.wide_bind else lan_address()
 
 
+def open_address(bind: str) -> str:
+    """The host a browser should be sent to: a wildcard bind (every interface) is reached by the LAN address."""
+    return lan_address() if bind in ("0.0.0.0", "::") else bind
+
+
 def allowed_hosts(bind: str) -> list[str]:
     """Names this application answers to (WCON-1060): its own host name, ``.local``, loopback and its address."""
     host = socket.gethostname().lower()
@@ -37,6 +42,7 @@ def allowed_hosts(bind: str) -> list[str]:
     if bind not in ("0.0.0.0", "::"):
         names.add(bind)
     else:
+        names.add(lan_address())                                  # the address people will actually type
         try:
             names.update(info[4][0] for info in socket.getaddrinfo(host, None, socket.AF_INET))
         except OSError:

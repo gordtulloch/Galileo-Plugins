@@ -93,6 +93,9 @@ def main(stdin=None, stdout=None, make_server=None, sleep=None) -> int:
         import gevent
         from gevent.pywsgi import WSGIServer
         sleep = gevent.sleep                                    # the main loop must yield to the server's greenlets
+        # A browser refusing the self-signed certificate aborts its handshake; that is routine, not a fault to print.
+        hub = gevent.get_hub()
+        hub.NOT_ERROR = (*hub.NOT_ERROR, ssl.SSLError, ConnectionError)
 
         def make_server(bind, port, app, ctx):
             return WSGIServer((bind, port), app, ssl_context=ctx, log=None)

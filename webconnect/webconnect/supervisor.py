@@ -42,8 +42,14 @@ def child_command(plugin_dir: Path, deps_dir: Path | None = None, python: str | 
 
 
 def default_spawn(argv: Sequence[str]) -> subprocess.Popen:
-    return subprocess.Popen(list(argv), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    return subprocess.Popen(list(argv), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             text=True, bufsize=1)
+
+
+def _is_handshake_noise(line: str) -> bool:
+    """A browser that refuses a self-signed certificate, or a plain-HTTP request to the HTTPS port, makes gevent
+    log an ``SSLError`` for that one connection. It is not a fault of the web application."""
+    return "SSLError" in line or "_handle_and_close_when_done" in line
 
 
 class Supervisor:
@@ -61,6 +67,7 @@ class Supervisor:
         self._last_beat = 0.0
         self.failures = 0
         self.port = 0
+        self.last_error = ""                                   # last line the child wrote to stderr
         self.ready = threading.Event()
 
     # -- state ---------------------------------------------------------------------------------------
@@ -93,6 +100,18 @@ class Supervisor:
             self._proc = proc
         self._last_beat = self._clock()
         threading.Thread(target=self._read, args=(proc,), name="webconnect-heartbeat", daemon=True).start()
+        if getattr(proc, "stderr", None) is not None:
+            threading.Thread(target=self._read_errors, args=(proc,), name="webconnect-stderr", daemon=True).start()
+
+    def _read_errors(self, proc: Any) -> None:
+        """Keep the child's last error line: without it a start-up failure (a missing module) is invisible."""
+        try:
+            for line in proc.stderr:
+                if line.strip() and not _is_handshake_noise(line):
+                    self.last_error = line.strip()
+                    logger.warning("WebConnect web process: %s", self.last_error)
+        except (OSError, ValueError):
+            pass
 
     def _read(self, proc: Any) -> None:
         for line in proc.stdout:
@@ -103,11 +122,15 @@ class Supervisor:
                 self._last_beat = self._clock()
                 self.port = int(line.split()[1]) if len(line.split()) > 1 else 0
                 self.failures = 0
+                self.last_error = ""
                 self.ready.set()
 
     def _back_off(self, delay: float, why: str) -> bool:
         """Count a failure, tell the person after a few in a row, wait ``delay``. True if stopped meanwhile."""
         self.failures += 1
+        time.sleep(0.05)                                                         # let the stderr reader finish
+        if self.last_error:
+            why = f"{why}: {self.last_error}"
         logger.warning("WebConnect web process: %s (%d in a row)", why, self.failures)
         if self.failures == ALERT_AFTER_FAILURES and self._alert is not None:
             self._alert(f"The WebConnect web application keeps failing: {why}.")

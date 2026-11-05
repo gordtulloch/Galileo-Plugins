@@ -185,3 +185,19 @@ def test_tc_wcon_030_a_silent_child_is_restarted(monkeypatch):
     s.stop(grace_s=0.1)
     assert len(spawned) >= 2 and spawned[0].terminated
 
+
+
+@pytest.mark.requirement("TC-WCON-030")
+@pytest.mark.priority("MVP")
+def test_tc_wcon_030_the_web_process_reaches_connect_link_where_it_listens():
+    """WCON-030: the web process is pointed at the address Connect Link is bound to (the LAN interface by
+    default), falling back to loopback only for a wildcard bind."""
+    from types import SimpleNamespace
+
+    from webconnect.plugin import link_address_of
+
+    def host(h, port):
+        return SimpleNamespace(status=lambda: {"host": h, "port": port}, settings=lambda: SimpleNamespace(port=8765))
+    assert link_address_of(host("192.168.68.64", 8765)) == "https://192.168.68.64:8765"
+    assert link_address_of(host("0.0.0.0", 8765)) == "https://127.0.0.1:8765"
+    assert link_address_of(host("", 0)) == "https://127.0.0.1:8765"

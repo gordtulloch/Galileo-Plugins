@@ -80,13 +80,21 @@ def build_one(plugin_dir: Path) -> Path | None:
         for pkg in packages
         for f in pkg.rglob("help/*.md")
     ]
+    # Web assets a plugin serves itself (templates, static files): without them a packaged plugin returns 500s.
+    asset_files = [
+        f
+        for pkg in packages
+        for folder in ("templates", "static")
+        for f in pkg.rglob(f"{folder}/**/*")
+        if f.is_file() and "__pycache__" not in f.parts
+    ]
 
     with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.write(plugin_dir / "plugin.toml", "plugin.toml")
-        for f in sorted([*py_files, *help_files]):
+        for f in sorted({*py_files, *help_files, *asset_files}):
             zf.write(f, f.relative_to(plugin_dir).as_posix())
 
-    print(f"  ZIP: {dest.relative_to(REPO_ROOT)}  ({len(py_files)} .py, {len(help_files)} help file(s))")
+    print(f"  ZIP: {dest.relative_to(REPO_ROOT)}  ({len(py_files)} .py, {len(help_files)} help file(s), {len(asset_files)} web asset(s))")
     return dest
 
 

@@ -95,6 +95,16 @@ class Runtime:
             self.supervisor.start()
 
 
+def link_address_of(host) -> str:
+    """Where the web process reaches Connect Link: the address it is actually listening on. It binds the LAN
+    interface by default, so loopback would find nothing; loopback is used only for a wildcard or unknown bind."""
+    st = host.status()
+    name = st.get("host") or ""
+    if name in ("", "0.0.0.0", "::"):
+        name = "127.0.0.1"
+    return f"https://{name}:{st.get('port') or host.settings().port}"
+
+
 def build_runtime(ctx) -> Runtime:
     from galileo.connect_link.host import get_host
     from galileo.control_surface.service import get_control_surface
@@ -124,7 +134,7 @@ def _build_supervisor(ctx, host, service, registry):
     certs = CertificateStore(KeyringSecretStore(), settings)
     provide = make_config_provider(
         cfg, certs, registry.mint_service_credential,
-        link_address=lambda: f"https://127.0.0.1:{host.settings().port}",
+        link_address=lambda: link_address_of(host),
         link_fingerprint=service.certs.fingerprint)
     plugin_dir = Path(__file__).resolve().parents[1]
     deps = plugin_dir / ".deps"

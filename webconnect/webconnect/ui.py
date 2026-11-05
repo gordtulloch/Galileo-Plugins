@@ -32,7 +32,7 @@ from PySide6.QtWidgets import (
 from webconnect import PLUGIN
 from webconnect.browsers import OPERATOR, BrowserError
 from webconnect.config import WebConnectConfig
-from webconnect.launch import bind_address
+from webconnect.launch import bind_address, open_address
 
 _REFRESH_MS = 3000
 _ROLE = 0x0100
@@ -225,15 +225,25 @@ class WebConnectOptions(QWidget):
         sup = rt.supervisor
         up = sup is not None and sup.running
         port = getattr(sup, "port", 0) or rt.options().port
-        self.address_edit.setText(f"https://{bind_address(rt.options())}:{port}/" if up else "")
+        self.address_edit.setText(f"https://{open_address(bind_address(rt.options()))}:{port}/")
         self.start_btn.setEnabled(not up)
         self.stop_btn.setEnabled(up)
         problems = getattr(sup, "failures", 0)
         if problems:
+            reason = getattr(sup, "last_error", "")
             self.status_label.setText(f"The web application has failed to start {problems} time(s) in a row; "
-                                      "Galileo keeps trying.")
+                                      "Galileo keeps trying." + (f" Last error: {reason}" if reason else ""))
         elif not self.status_label.text() or self.status_label.text() == "Saved.":
             self.status_label.setText("Running." if up else "Stopped. Browsers cannot connect.")
+        elif up and self.status_label.text().startswith("The web application has failed"):
+            self.status_label.setText("Running.")
+        if not problems and getattr(sup, "last_error", ""):
+            self.status_label.setText(f"{self.status_label.text().split(' Last error:')[0]} Last error: {sup.last_error}")
+        link = getattr(getattr(rt, "_host", None), "status", None)
+        link = link() if callable(link) else None
+        if up and isinstance(link, dict) and not link.get("running"):
+            self.status_label.setText("Running, but browsers cannot pair: Connect Link is not listening. "
+                                      "Turn it on in Options > Connect Link.")
         self._fill(self.requests, [(r["request_id"], f"{r['name']} ({r['platform']}) - code {r['code']}")
                                    for r in rt.browsers.pending()])
         rows = []
