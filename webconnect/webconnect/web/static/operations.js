@@ -55,14 +55,15 @@ function collect(form, op) {
 function opCard(ctx, op) {
   const out = el("pre", { className: "result", hidden: true });
   const short = op.name.split(".")[1];
-  const run = el("button", { type: "submit", className: "primary", disabled: !op.available, title: op.reason || op.description }, short);
+  const usable = ctx.can(op.name);                     // false while the stream is down, except emergency operations
+  const run = el("button", { type: "submit", className: "primary", disabled: !usable, title: ctx.why(op.name) || op.description }, short);
   const form = el("form", {}, ...op.args.map(field), run);
-  if (!op.available) form.append(el("small", {}, op.reason));
+  if (!usable) form.append(el("small", {}, ctx.why(op.name)));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     run.disabled = true;
     const body = await ctx.run(op.name, collect(form, op));
-    run.disabled = !op.available;
+    run.disabled = !ctx.can(op.name);
     out.hidden = false;
     out.textContent = body.status === "ok" ? (body.value == null ? "Done." : JSON.stringify(body.value, null, 1))
                                            : `${body.status}: ${body.reason || ""}`;

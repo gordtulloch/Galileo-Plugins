@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added (2026-11-06)
+
+- **The page now says when it is not live, and stops offering operations it cannot safely run (`WCON-780`).** When the event stream drops, a banner on the Pier screen says the state may be out of date and how long ago it last updated, and every Pier-affecting operation is disabled (and refused if attempted) until the stream returns. Emergency operations (stop everything, park, close dome) stay attemptable. Pages redraw their buttons when the stream goes down and when it comes back. Previously the page only dimmed and showed "Not live", while buttons stayed active. No server change. Test: `TC-WCON-780`, which runs the real `pier.js` under Node against a fake DOM and is skipped if Node is absent. Still open from `WCON-300`: the first snapshot covers the open Pier only, not every Pier the browser may see.
+
 ### Changed (2026-11-05)
 
 - **Pictures lay out by shape (portrait or landscape).** The viewer reads the frame's size and lays it out accordingly: wide frames fill the width and, when compared side by side, stack one above the other; tall frames are height-capped and centred, and two tall frames compared side by side sit next to each other. Applies to Camera, Focus and Solve. Style/markup only; not yet seen with a real portrait frame on a phone.

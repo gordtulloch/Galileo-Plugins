@@ -25,6 +25,8 @@ const PAGES = [
   { id: "operations", label: "More", icon: "☰", build: operationsPage },
 ];
 
+const STALE_REASON = "Not live: the connection to Galileo is down, so what is shown may be out of date.";
+
 export function openPier(api, pier, root, tabs) {
   const state = new Map();
   const catalogue = new Map();
@@ -32,6 +34,7 @@ export function openPier(api, pier, root, tabs) {
   let stream = null;
   let closed = false;
   let live = false;
+  let lastHeard = null;                       // when state last arrived: how stale the page is while the stream is down
   const path = (rest) => `/api/v1/pier/${encodeURIComponent(pier.id)}/${rest}`;
   const emit = (name, value) => listeners[name].forEach((fn) => fn(value));
 
@@ -42,6 +45,7 @@ export function openPier(api, pier, root, tabs) {
     get live() { return live; },
     /** Run one operation. A dangerous one answers with a confirmation token; the person is asked, then it re-sends. */
     async run(name, args = {}) {
+      if (!live && catalogue.get(name)?.class !== "emergency") return { status: "unavailable", reason: STALE_REASON };   // WCON-780
       const key = crypto.randomUUID();
       const send = (token) => api(path(`ops/${name}`), {
         method: "POST", body: JSON.stringify({ args }),
@@ -55,15 +59,16 @@ export function openPier(api, pier, root, tabs) {
       return body;
     },
     /** True when the Master would run this operation for this browser now (device present, lease held). */
-    can(name) { return catalogue.get(name)?.available === true; },
-    why(name) { return catalogue.get(name)?.reason || ""; },
+    can(name) { const op = catalogue.get(name); return op?.available === true && (live || op.class === "emergency"); },
+    why(name) { return !live && catalogue.get(name)?.class !== "emergency" ? STALE_REASON : catalogue.get(name)?.reason || ""; },
     refreshCatalogue: loadCatalogue,
   };
 
   // -- layout --------------------------------------------------------------------------------------------
   const leaseBar = el("div", { className: "notice lease" });
+  const staleBar = el("div", { className: "notice warn stale", role: "status", hidden: true });
   const body = el("div");
-  root.replaceChildren(leaseBar, body);
+  root.replaceChildren(staleBar, leaseBar, body);
   document.getElementById("pier-name").textContent = pier.name || pier.id;
 
   const built = new Map();
@@ -110,6 +115,7 @@ export function openPier(api, pier, root, tabs) {
     const { body: out } = await api(path("state"));
     state.clear();
     for (const [key, value] of Object.entries(out.values || {})) state.set(key, value);
+    lastHeard = Date.now();
     emit("state", null);
   }
 
@@ -120,10 +126,21 @@ export function openPier(api, pier, root, tabs) {
     emit("catalogue", null);
   }
 
+  function drawStale() {
+    staleBar.hidden = live;
+    if (live) return;
+    const age = lastHeard ? ` Last update ${Math.max(0, Math.round((Date.now() - lastHeard) / 1000))} s ago.` : "";
+    staleBar.textContent = `${STALE_REASON}${age} Only the emergency operations can be attempted until it returns.`;
+  }
+  const staleTimer = setInterval(() => { if (!live) drawStale(); }, 1000);
+
   function setLive(value) {
+    if (live === value) return;
     live = value;
     document.body.classList.toggle("offline", !value);
+    drawStale();
     emit("live", value);
+    emit("catalogue", null);                  // pages redraw their buttons: disabled while stale, enabled again on return
   }
 
   function listen() {
@@ -135,7 +152,7 @@ export function openPier(api, pier, root, tabs) {
     };
     stream.addEventListener("state", (e) => {
       const d = mine(e);
-      if (d && d.key) { state.set(d.key, d.value); emit("state", d); }
+      if (d && d.key) { state.set(d.key, d.value); lastHeard = Date.now(); emit("state", d); }
     });
     stream.addEventListener("lease", (e) => { const d = mine(e); if (d) { emit("event", `lease: ${d.holder || "free"} (${d.reason || ""})`); loadCatalogue(); } });
     stream.addEventListener("event", (e) => {
@@ -156,6 +173,7 @@ export function openPier(api, pier, root, tabs) {
 
   function close() {
     closed = true;
+    clearInterval(staleTimer);
     stream?.close();
     for (const instance of built.values()) instance.hide?.();
     tabs.replaceChildren();
