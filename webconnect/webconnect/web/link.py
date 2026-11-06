@@ -21,6 +21,7 @@ from urllib.parse import urlencode, urlsplit
 ACTING = "X-Acting-Client"
 PLUGIN_API = "/webconnect/v1"
 CONNECT_API = "/connect/v1"
+MAX_PICTURE_BYTES = 16 * 1024 * 1024
 
 
 class LinkError(Exception):
@@ -32,6 +33,8 @@ class LinkClient(Protocol):
     def pair_poll(self, request_id: str) -> dict[str, Any]: ...
     def call(self, method: str, route: str, *, client: str = "", body: dict[str, Any] | None = None,
              query: dict[str, str] | None = None, source: str = "", timeout: float | None = None) -> dict[str, Any]: ...
+    def call_raw(self, route: str, *, client: str, query: dict[str, str] | None = None, source: str = "",
+                 timeout: float | None = None) -> tuple[int, str, dict[str, str], bytes]: ...
     def reachable(self) -> bool: ...
 
 
@@ -105,6 +108,27 @@ class HttpLinkClient:
         if out.get("http") == 401:
             raise LinkError("The Master refused this web application's credential.")
         return out
+
+    def call_raw(self, route: str, *, client: str, query: dict[str, str] | None = None, source: str = "",
+                 timeout: float | None = None) -> tuple[int, str, dict[str, str], bytes]:
+        """A GET whose answer is bytes (a picture): ``(status, content type, headers, body)``. A body that is not an
+        image is the Master's JSON refusal and the caller relays it. Capped, so a fault cannot fill memory."""
+        path = PLUGIN_API + route + (("?" + urlencode(query)) if query else "")
+        headers = {"Authorization": f"Bearer {self._token}", ACTING: client}
+        if source:
+            headers["X-Client-Address"] = source
+        conn = _PinnedHTTPS(self._host, self._port, self._fingerprint, timeout or self._timeout)
+        try:
+            conn.request("GET", path, headers=headers)
+            resp = conn.getresponse()
+            body = resp.read(MAX_PICTURE_BYTES + 1)
+            if len(body) > MAX_PICTURE_BYTES:
+                raise LinkError("The Master sent a picture larger than allowed.")
+            return resp.status, resp.getheader("Content-Type", ""), {k: v for k, v in resp.getheaders()}, body
+        except (OSError, http.client.HTTPException) as exc:
+            raise LinkError(f"The Master could not be reached: {exc}") from exc
+        finally:
+            conn.close()
 
     def reachable(self) -> bool:
         try:

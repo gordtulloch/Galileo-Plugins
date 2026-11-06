@@ -2,6 +2,7 @@
 // repeating solve-and-correct. Built on solve.* operations; progress arrives on the event stream.
 
 import { el } from "./dom.js";
+import { imageViewer } from "./imageview.js";
 import { badges, describe, messenger, num, operationTracker, poller } from "./common.js";
 import { formatDec, formatRa, parseSexagesimal } from "./mount.js";
 
@@ -31,6 +32,7 @@ export function solvePage(ctx) {
   const centre = el("button", { type: "button" }, "Centre on target");
   const stop = el("button", { type: "button", className: "danger" }, "Stop");
 
+  const picture = imageViewer(ctx);
   const root = el("div", {}, el("h2", {}, "Plate solving"), notice,
     el("div", { className: "card" }, flags,
       el("div", { className: "row" }, capture, sync, stop), bar, progressText, messageNode),
@@ -40,7 +42,7 @@ export function solvePage(ctx) {
     el("details", { className: "card" }, el("summary", {}, "Solve settings"),
       el("div", { className: "row" }, exposure.node, accuracy.node), el("div", { className: "row" }, iterations.node, binning.node),
       el("div", { className: "row" }, gain.node, filter.node)),
-    el("h3", {}, "Last result"), result, el("h3", {}, "Log"), el("div", { className: "card" }, log));
+    picture.el, el("h3", {}, "Last result"), result, el("h3", {}, "Log"), el("div", { className: "card" }, log));
   operationTracker(ctx, "solve.", bar, progressText);
 
   const common = () => {
@@ -109,5 +111,5 @@ export function solvePage(ctx) {
   ctx.on("catalogue", draw);
   ctx.on("operation", ({ kind, payload }) => { if (kind === "OperationFinished" && String(payload.operation).startsWith("solve.")) poll.now(); });
   draw();
-  return { el: root, show() { poll.start(); }, hide() { poll.stop(); } };
+  return { el: root, show() { poll.start(); picture.show(); }, hide() { poll.stop(); picture.hide(); } };
 }

@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 _NAME = re.compile(r"^[A-Za-z0-9 ._'-]{1,60}$")
 _PIER = re.compile(r"^[A-Za-z0-9:_.-]{1,80}$")
 _OP = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
+_REF = re.compile(r"^(current|library:[\w.\-]{1,80})$")             # a frame: the Pier's current one, or a Library frame
+MAX_PICTURE_SIZE, MAX_PICTURE_QUALITY = 2048, 92   # the largest, best picture a browser may ask for (WCON-630)
 MAX_STREAMS = 4                                  # event streams one sign-in may hold open (a few tabs)
 EVENT_WAIT_S = 8                                 # how long the Master may hold one poll
 _PLATFORMS = ("Windows", "Android", "iPhone", "iPad", "Macintosh", "Linux")
@@ -189,6 +191,66 @@ def create_app(link: LinkClient, settings: WebSettings | None = None) -> Flask:
         if _pier(pier) is None:
             return jsonify({"status": "invalid", "reason": "unknown Pier"}), 400
         return _passthrough(link.call("GET", "/state", client=s.client, query={"pier": pier}), s)
+
+    # -- pictures (WCON-600, 610, 630) --------------------------------------------------------------
+    def _picture_query(extra: tuple[str, ...] = ()) -> dict[str, str]:
+        """The few parameters a picture takes, each checked and bounded here (the Master bounds them again)."""
+        ref = request.args.get("ref", "current")
+        out = {"ref": ref if _REF.match(ref) else "current"}
+        for key, low, high in (("stretch", 0, 100), ("bin", 1, 4), ("size", 64, MAX_PICTURE_SIZE),
+                               ("quality", 10, MAX_PICTURE_QUALITY), *((k, 0, 1 << 20) for k in extra)):
+            if key in request.args:
+                try:
+                    out[key] = str(max(low, min(high, int(request.args[key]))))
+                except ValueError:
+                    pass
+        return out
+
+    def _relay_picture(pier: str, route: str, query: dict[str, str]):
+        s = g.wc_session
+        status, ctype, headers, body = link.call_raw(route, client=s.client, query={**query, "pier": pier}, source=sec.source())
+        if ctype.startswith("image/") and status == 200:
+            resp = make_response(body)
+            resp.headers["Content-Type"] = ctype
+            for name in ("X-Preview-Width", "X-Preview-Height", "X-Preview-Degraded"):
+                if name in headers:
+                    resp.headers[name] = headers[name]
+            return resp
+        try:
+            out = json.loads(body or b"{}")
+        except ValueError:
+            out = {"status": "unavailable", "reason": "Galileo sent something unexpected."}
+        if out.get("client_refused"):
+            return _passthrough({**out, "http": status}, s)
+        resp = jsonify({"status": out.get("status", "unavailable"), "reason": out.get("reason", "")})
+        resp.status_code = status if 400 <= status < 600 else 502
+        return resp
+
+    @sec.route("/api/v1/pier/<pier>/frames", auth=SESSION)
+    def frames(pier: str):
+        s = g.wc_session
+        if _pier(pier) is None:
+            return jsonify({"status": "invalid", "reason": "unknown Pier"}), 400
+        return _passthrough(link.call("GET", "/frames", client=s.client, query={"pier": pier}), s)
+
+    @sec.route("/api/v1/pier/<pier>/preview", auth=SESSION)
+    def preview(pier: str):
+        if _pier(pier) is None:
+            return jsonify({"status": "invalid", "reason": "unknown Pier"}), 400
+        return _relay_picture(pier, "/preview", _picture_query())
+
+    @sec.route("/api/v1/pier/<pier>/preview/meta", auth=SESSION)
+    def preview_meta(pier: str):
+        s = g.wc_session
+        if _pier(pier) is None:
+            return jsonify({"status": "invalid", "reason": "unknown Pier"}), 400
+        return _passthrough(link.call("GET", "/preview/meta", client=s.client, query={**_picture_query(), "pier": pier}), s)
+
+    @sec.route("/api/v1/pier/<pier>/tile", auth=SESSION)
+    def tile(pier: str):
+        if _pier(pier) is None:
+            return jsonify({"status": "invalid", "reason": "unknown Pier"}), 400
+        return _relay_picture(pier, "/tile", _picture_query(("level", "x", "y")))
 
     streams: dict[str, int] = {}                     # session id -> open event streams
 

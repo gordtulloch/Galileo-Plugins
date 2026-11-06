@@ -69,6 +69,10 @@ class Delegate:
         add(PLUGIN, "GET", f"{API}/catalogue", "view", self.catalogue)
         add(PLUGIN, "GET", f"{API}/state", "view", self.state)
         add(PLUGIN, "GET", f"{API}/events", "view", self.events)
+        add(PLUGIN, "GET", f"{API}/frames", "view", self.frames)
+        add(PLUGIN, "GET", f"{API}/preview", "view", self.preview)
+        add(PLUGIN, "GET", f"{API}/preview/meta", "view", self.preview_meta)
+        add(PLUGIN, "GET", f"{API}/tile", "view", self.tile)
         add(PLUGIN, "POST", f"{API}/ops", "view", self.ops)             # a Viewer reaches it, is refused and audited
         add(PLUGIN, "POST", f"{API}/lease/acquire", "view", self.lease_acquire)
         add(PLUGIN, "POST", f"{API}/lease/take", "view", self.lease_take)
@@ -179,7 +183,11 @@ class Delegate:
         except ValueError:
             return self._error(Denied(400, "after must be a number or 'latest', and wait a number of seconds"))
         wait = min(MAX_EVENT_WAIT_S, max(0.0, wait))
-        return {"status": "ok", **plain(await asyncio.to_thread(feed.read, max(0, after), wait))}
+        out = plain(await asyncio.to_thread(feed.read, max(0, after), wait))
+        for entry in out.get("entries", ()):
+            if isinstance(entry.get("payload"), dict):
+                entry["payload"].pop("service", None)          # a frame event holds the imaging service: not data
+        return {"status": "ok", **out}
 
     async def ops(self, carrier, request) -> dict[str, Any]:
         try:
@@ -197,6 +205,91 @@ class Delegate:
             confirm_token=str(body.get("confirm_token", "")),
             source=str(request.headers.get("X-Client-Address", "")))
         return plain((await svc.gateway.handle(req)).as_dict())
+
+    # -- pictures (WCON-600, 610, 630; PREV-070) -----------------------------------------------------
+    def _previews(self, carrier, request):
+        """The browser's identity is checked first, then the engine's preview facade; both refuse with a reason."""
+        self._client(carrier, request)
+        previews = getattr(self._service(), "previews", None)
+        if previews is None:
+            raise Denied(503, "Galileo is not offering pictures yet")
+        return previews
+
+    @staticmethod
+    def _ref(request) -> str:
+        """``current`` means the Pier's current exposure; ``library:<id>`` names a Library frame."""
+        ref = request.query.get("ref", "current")
+        return f"current:{request.query.get('pier', '')}" if ref == "current" else ref
+
+    @staticmethod
+    def _params(request, **flags):
+        from galileo.preview import PreviewParams
+
+        def number(name: str, default: int, low: int, high: int) -> int:
+            try:
+                return max(low, min(high, int(request.query.get(name, default))))
+            except ValueError:
+                return default
+        return PreviewParams(stretch=number("stretch", 50, 0, 100), bin=number("bin", 1, 1, 4),
+                             max_size=number("size", 1024, 64, 4096), quality=number("quality", 85, 10, 95), **flags)
+
+    @staticmethod
+    def _picture_error(exc: Exception):
+        from aiohttp import web
+        from galileo.preview import PreviewError
+        if isinstance(exc, Denied):
+            return web.json_response(Delegate._error(exc), status=exc.status)
+        if isinstance(exc, PreviewError):
+            return web.json_response({"status": "unavailable", "reason": str(exc)}, status=404)
+        raise exc
+
+    async def frames(self, carrier, request) -> dict[str, Any]:
+        """The Pier's current frame (and its version, which changes with each new one) and the newest Library frames."""
+        try:
+            previews = self._previews(carrier, request)
+        except Denied as exc:
+            return self._error(exc)
+        return {"status": "ok", **plain(await previews.frames(request.query.get("pier", ""), 30))}
+
+    async def preview(self, carrier, request):
+        from aiohttp import web
+        try:
+            previews = self._previews(carrier, request)
+            shot = await previews.render(self._ref(request), self._params(request))
+        except Exception as exc:
+            return self._picture_error(exc)
+        return web.Response(body=shot.data, content_type=shot.content_type, headers={
+            "X-Preview-Width": str(shot.width), "X-Preview-Height": str(shot.height),
+            "X-Preview-Degraded": "1" if shot.degraded else "0"})
+
+    async def preview_meta(self, carrier, request) -> dict[str, Any]:
+        """The frame's size, histogram and star statistics, for the controls beside a picture."""
+        try:
+            previews = self._previews(carrier, request)
+            ref = self._ref(request)
+            info = await previews.info(ref)
+            shot = await previews.render(ref, self._params(request, histogram=True, stats=True))
+        except Exception as exc:
+            from galileo.preview import PreviewError
+            if isinstance(exc, Denied):
+                return self._error(exc)
+            if isinstance(exc, PreviewError):
+                return {"status": "unavailable", "reason": str(exc), "http": 404}
+            raise
+        return {"status": "ok", **plain(info), "histogram": plain(shot.histogram), "stats": plain(shot.stats),
+                "degraded": shot.degraded}
+
+    async def tile(self, carrier, request):
+        from aiohttp import web
+        try:
+            previews = self._previews(carrier, request)
+            level, x, y = (int(request.query.get(k, "0")) for k in ("level", "x", "y"))
+            data = await previews.tile(self._ref(request), level, x, y, self._params(request))
+        except ValueError:
+            return web.json_response({"status": "invalid", "reason": "level, x and y must be numbers"}, status=400)
+        except Exception as exc:
+            return self._picture_error(exc)
+        return web.Response(body=data, content_type="image/jpeg")
 
     async def _lease(self, carrier, request, action: str) -> dict[str, Any]:
         try:

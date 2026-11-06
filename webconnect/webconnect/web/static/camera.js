@@ -2,6 +2,7 @@
 // Built on camera.* and filter.* operations. There is no image operation in the catalogue yet, so no preview here.
 
 import { el } from "./dom.js";
+import { imageViewer } from "./imageview.js";
 import { badges, describe, messenger, num, operationTracker, poller, readout } from "./common.js";
 
 export function cameraPage(ctx) {
@@ -27,6 +28,7 @@ export function cameraPage(ctx) {
   const filterCard = el("div", { className: "card", hidden: true }, el("div", { className: "row" },
     el("label", {}, "Filter", filters), el("div", { className: "fixed" }, pick)));
 
+  const picture = imageViewer(ctx, { full: true });
   const root = el("div", {}, el("h2", {}, "Camera"), notice,
     el("div", { className: "card" }, el("div", { className: "readout" }, temp.box, power.box), flags,
       el("div", { className: "row" }, el("label", {}, "Target temperature (°C)", target), el("div", { className: "fixed" }, cool))),
@@ -35,7 +37,7 @@ export function cameraPage(ctx) {
       el("div", { className: "row" }, el("label", {}, "Seconds", seconds), el("label", {}, "Frame type", frameType)),
       el("div", { className: "row" }, el("label", {}, "Gain", gain), el("label", {}, "Offset", offset), el("label", {}, "Binning", binning)),
       el("div", { className: "row" }, expose, abort), bar, progressText, messageNode),
-    el("h3", {}, "Filter wheel"), filterCard);
+    el("h3", {}, "Filter wheel"), filterCard, picture.el);
   operationTracker(ctx, "camera.", bar, progressText);
 
   function draw(value) {
@@ -95,5 +97,5 @@ export function cameraPage(ctx) {
 
   ctx.on("catalogue", () => { draw(last); loadFilters(); });
   draw(null);
-  return { el: root, show() { poll.start(); loadFilters(); }, hide() { poll.stop(); } };
+  return { el: root, show() { poll.start(); loadFilters(); picture.show(); }, hide() { poll.stop(); picture.hide(); } };
 }

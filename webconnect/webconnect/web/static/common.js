@@ -125,3 +125,17 @@ export function paintStar(canvas, star) {
     ctx2.strokeRect(star.star_pos[0] - 6, star.star_pos[1] - 6, 12, 12);
   }
 }
+
+/** A frame's histogram ({bins, counts}) as a filled, log-scaled area: a few bright stars must not flatten the sky. */
+export function histogramChart(hist, { height = 90 } = {}) {
+  const width = 600;
+  const root = svg("svg", { viewBox: `0 0 ${width} ${height}`, class: "chart", role: "img" });
+  const counts = hist?.counts || [];
+  if (!counts.length) return root;
+  const logs = counts.map((c) => Math.log1p(c));
+  const top = Math.max(...logs) || 1;
+  const x = (i) => ((i / (counts.length - 1)) * width).toFixed(1);
+  const d = `M0 ${height} ${logs.map((v, i) => `L${x(i)} ${(height - (v / top) * (height - 4)).toFixed(1)}`).join(" ")} L${width} ${height} Z`;
+  root.append(svg("path", { d, class: "hist-area" }));
+  return root;
+}

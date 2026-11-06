@@ -6,6 +6,7 @@
 with Connect Link's route registry, so the contract between the halves is exercised, not assumed."""
 
 import asyncio
+import json
 import re
 from pathlib import Path
 
@@ -61,6 +62,23 @@ class Bridge:
                     raise ValueError
                 return body
         return asyncio.run(found.handler(self.world.carrier, Request()))
+
+    def call_raw(self, route, *, client, query=None, source="", timeout=None):
+        """A GET whose answer may be a picture, through the same registry the Master half registered with."""
+        self._guard()
+        self.calls.append(("GET", route, client))
+        found = self.routes.find("GET", API + route)
+        assert found is not None, f"no Master route GET {route}"
+
+        class Request:
+            headers = {ACTING: client}
+            query = {}
+
+        Request.query = dict(query or {})
+        result = asyncio.run(found.handler(self.world.carrier, Request()))
+        if isinstance(result, dict):
+            return result.get("http", 200), "application/json", {}, json.dumps(result).encode()
+        return result.status, result.content_type, dict(result.headers), result.body
 
     def reachable(self):
         return not self.down
@@ -378,5 +396,5 @@ def test_tc_wcon_800_the_page_and_every_script_it_imports_are_served_without_inl
         assert ".style." not in source and "innerHTML" not in source, name
         todo += re.findall(r'from "\./([\w.]+\.js)"', source)
     assert {"app.js", "pier.js", "mount.js", "operations.js", "dom.js", "common.js", "camera.js", "focuser.js", "guiding.js",
-            "solve.js", "sessions.js", "history.js"} <= seen
+            "solve.js", "sessions.js", "history.js", "imageview.js"} <= seen
     assert (static / "app.css").is_file()

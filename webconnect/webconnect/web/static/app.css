@@ -162,3 +162,37 @@ h2, h3, details, .card { scroll-margin-top: 4.5rem; }
 /* night vision: nothing may be white or any colour but red */
 [data-theme="night"] button.danger { color: #000; }
 [data-theme="night"] canvas.star { filter: grayscale(1) brightness(.55) sepia(1) hue-rotate(-50deg) saturate(8); }
+
+/* the Image page */
+.stage { position: relative; background: #000; border-radius: var(--radius); overflow: hidden; min-height: 8rem; }
+.stage img.frame { display: block; width: 100%; height: auto; }
+.stage.blink img.b { position: absolute; inset: 0; width: 100%; height: 100%; }
+.stage.blink img.b.off { visibility: hidden; }
+.stage.side { display: grid; grid-template-columns: 1fr; gap: 2px; }
+.stage img.frame.b:not([hidden]) { object-fit: contain; }
+
+/* Portrait and landscape frames: wide frames fill the width and stack when compared; tall frames are capped in
+   height, centred, and compared next to each other. */
+.viewer.landscape .stage { width: 100%; }
+.viewer.portrait .stage { width: min(100%, 34rem); margin: 0 auto; }
+.viewer.portrait .stage img.frame { max-height: 78vh; object-fit: contain; }
+.viewer.portrait .stage.side { grid-template-columns: 1fr 1fr; width: 100%; }
+.viewer.portrait .stage.side img.frame { max-height: 70vh; }
+.viewer.landscape .stage.side img.frame { max-height: 45vh; object-fit: contain; }
+.tile-scroll { overflow: auto; max-height: 70vh; background: #000; border-radius: var(--radius); margin-top: .5rem; -webkit-overflow-scrolling: touch; }
+table.tiles { border-collapse: collapse; border-spacing: 0; }
+table.tiles td { padding: 0; line-height: 0; }
+table.tiles img { display: block; }
+.hist-area { fill: var(--series-a); opacity: .75; }
+[data-theme="night"] .stage, [data-theme="night"] .tile-scroll { filter: grayscale(1) brightness(.4) sepia(1) hue-rotate(-50deg) saturate(8); }
+[data-theme="night"] input[type="range"] { filter: grayscale(1) brightness(.5) sepia(1) hue-rotate(-50deg) saturate(8); }
+
+input[type="range"] { accent-color: var(--accent); padding: 0; background: transparent; border: 0; }
+.stage + .badges { margin: .5rem 0; }
+
+.stage img.frame.broken { display: none; }
+
+/* beside controls (Focus, Solve) the picture must not push them off a phone screen */
+.viewer.compact .stage img.frame { max-height: 38vh; object-fit: contain; margin: 0 auto; }
+.viewer.compact.portrait .stage { width: min(100%, 20rem); }
+.viewer.compact .stats-note { display: none; }

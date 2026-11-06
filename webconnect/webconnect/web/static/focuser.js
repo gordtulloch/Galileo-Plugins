@@ -3,6 +3,7 @@
 // (focus.hold_*) needs a keep-alive and is not offered here yet.
 
 import { el } from "./dom.js";
+import { imageViewer } from "./imageview.js";
 import { describe, messenger, num, poller, readout } from "./common.js";
 
 const STEPS = [1, 10, 50, 100, 500, 1000];
@@ -22,7 +23,8 @@ export function focuserPage(ctx) {
   const target = el("input", { type: "number", inputMode: "numeric", min: "0", step: "1", placeholder: "position" });
   const go = el("button", { type: "button", className: "primary" }, "Move to");
 
-  const root = el("div", {}, el("h2", {}, "Focuser"), notice,
+  const picture = imageViewer(ctx);
+  const root = el("div", {}, el("h2", {}, "Focuser"), notice, picture.el,
     el("div", { className: "card" }, el("div", { className: "readout" }, position.box, temperature.box)),
     el("h3", {}, "Nudge"),
     el("div", { className: "card" },
@@ -69,5 +71,5 @@ export function focuserPage(ctx) {
 
   ctx.on("catalogue", () => draw(last));
   draw(null);
-  return { el: root, show() { poll.start(); }, hide() { poll.stop(); } };
+  return { el: root, show() { poll.start(); picture.show(); }, hide() { poll.stop(); picture.hide(); } };
 }

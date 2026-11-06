@@ -131,7 +131,7 @@ export function openPier(api, pier, root, tabs) {
     const mine = (e) => {
       const d = JSON.parse(e.data);
       const where = d.pier ?? d.payload?.pier;                  // events carry their Pier in the payload
-      return where === undefined || where === "" || where === pier.id ? d : null;
+      return where === undefined || where === "" || String(where) === String(pier.id) ? d : null;
     };
     stream.addEventListener("state", (e) => {
       const d = mine(e);
