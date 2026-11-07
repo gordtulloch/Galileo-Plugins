@@ -26,15 +26,15 @@ NOT_RUNNING = ("Galileo's control surface is not running. On the Galileo compute
                "\"Hold devices in the device service\" and restart Galileo.")
 PLUGIN_API_VERSION = "1.0"
 TAKEOVER_TTL_S = 60.0
-# Sky streaming needs routes over core's skystream service; the app states this rather than failing.
-SKY_NOT_BUILT = {"available": False, "reason": "not_built"}
 HTTP_STATUS = {"invalid": 400, "refused": 409, "unavailable": 409, "busy": 429, "unreachable": 409}
 
 
 class Routes:
     def __init__(self, peers, surface: Callable[[], Any], node_name: Callable[[], str], pump,
-                 publish: Callable[[str, dict[str, Any]], Any], clock: Callable[[], float] = time.time) -> None:
+                 publish: Callable[[str, dict[str, Any]], Any], clock: Callable[[], float] = time.time,
+                 sky: Any = None) -> None:
         self._peers, self._surface, self._node_name, self._pump = peers, surface, node_name, pump
+        self.sky = sky
         self._publish, self._clock = publish, clock
         self._takeovers: dict[str, tuple[str, str, float]] = {}       # token -> (peer, pier, expiry)
 
@@ -50,6 +50,8 @@ class Routes:
         add(PLUGIN, "DELETE", f"{API}/lease", "view", self.lease_release)
         add(PLUGIN, "GET", f"{API}/preview", "view", self.preview)
         add(PLUGIN, "GET", f"{API}/tile", "view", self.tile)
+        if self.sky is not None:
+            self.sky.register(routes)
 
     # -- who holds what ------------------------------------------------------------------------
     def describe_holder(self, holder: str) -> tuple[str | None, str | None]:
@@ -70,7 +72,8 @@ class Routes:
         areas: list[str] = []
         if svc is not None:
             areas = sorted({op["name"].split(".")[0] for op in svc.registry.catalogue("")["operations"]})
-        return {"plugin_api": PLUGIN_API_VERSION, "areas": areas, "sky_stream": SKY_NOT_BUILT}
+        sky = await self.sky.capability() if self.sky is not None else {"available": False, "reason": "not_offered"}
+        return {"plugin_api": PLUGIN_API_VERSION, "areas": areas, "sky_stream": sky}
 
     async def catalogue(self, peer, request) -> dict[str, Any]:
         svc = self._surface()
@@ -242,11 +245,14 @@ class Routes:
         previews = self._previews()
         if previews is None:
             return web.json_response({"error": "Galileo is not offering pictures yet"}, status=404)
+        ref = f"current:{request.query.get('pier', '')}"
         try:
-            shot = await previews.render(f"current:{request.query.get('pier', '')}", self._params(request))
+            shot = await previews.render(ref, self._params(request))
+            info = await previews.info(ref)
         except PreviewError as exc:
             return web.json_response({"error": str(exc)}, status=404)
-        return web.Response(body=shot.data, content_type=shot.content_type)
+        return web.Response(body=shot.data, content_type=shot.content_type, headers={
+            "X-Frame-Width": str(info["width"]), "X-Frame-Height": str(info["height"])})
 
     async def tile(self, peer, request):
         from galileo.preview import PreviewError

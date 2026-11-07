@@ -33,13 +33,14 @@ def is_spoke() -> bool:
 class Runtime:
     """The plugin's object graph. Tests build one around fakes; ``build_runtime`` uses core's."""
 
-    def __init__(self, host: Any, peers: Any, clients: ClientRegistry, surface: Any, node_name: Any) -> None:
+    def __init__(self, host: Any, peers: Any, clients: ClientRegistry, surface: Any, node_name: Any,
+                 sky: Any = None) -> None:
         self._host, self._peers, self.clients, self._surface = host, peers, clients, surface
         self._node_name = node_name
         self._server: Any = None
         self._acquired = False
         self.pump = EventPump(surface, self._describe, self._broadcast, self._watching)
-        self.routes = Routes(peers, surface, node_name, self.pump, self._publish)
+        self.routes = Routes(peers, surface, node_name, self.pump, self._publish, sky=sky)
 
     # -- what the pump and routes need from the listener ---------------------------------------
     def _describe(self, holder: str) -> tuple[str | None, str | None]:
@@ -103,7 +104,9 @@ def build_runtime(ctx: Any) -> Runtime:
         return svc.leases if svc is not None else None
 
     clients = ClientRegistry(service.peers, service.pairing, leases, service.certs.fingerprint)
-    return Runtime(host, service.peers, clients, get_control_surface, lambda: socket.gethostname().split(".")[0])
+    from mobileconnect.sky import SkyRoutes
+    return Runtime(host, service.peers, clients, get_control_surface, lambda: socket.gethostname().split(".")[0],
+                   sky=SkyRoutes())
 
 
 class MobileConnectPlugin(PluginBase):

@@ -366,7 +366,7 @@ async def test_tc_mcon_310_piers_and_a_stopped_engine_said_in_words(world, http)
     viewer = await App(world, http).pair("Phone", role=VIEWER)
     assert (await viewer.request("GET", "/mobileconnect/v1/piers"))[1]["piers"][0]["access"] == "view"
     status, caps, _ = await app.request("GET", "/mobileconnect/v1/capabilities")
-    assert "mount" in caps["areas"] and caps["sky_stream"]["available"] is False
+    assert "mount" in caps["areas"] and caps["sky_stream"]["available"] is True and caps["sky_stream"]["rate_per_s"] > 0
 
     world.engine_running = False
     status, out, _ = await app.request("GET", "/mobileconnect/v1/piers")

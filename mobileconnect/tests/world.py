@@ -141,7 +141,32 @@ class World:
 
         self.server.discovery = NoDiscovery()
         self.runtime = Runtime(None, self.peers, self.clients, lambda: self.surface if self.engine_running else None,
-                               lambda: "Test Master")
+                               lambda: "Test Master", sky=self._sky())
+
+    @staticmethod
+    def _sky():
+        """Core's real streaming service over a tiny catalog: a test shouldn't need the bundled one."""
+        import numpy as np
+        from galileo.skystream import ArrayCatalog, SkyStreamService
+
+        from mobileconnect.sky import SkyRoutes
+
+        catalog = ArrayCatalog(np.array([83.8, 84.0, 10.0, 83.82]), np.array([-5.4, -5.0, 41.0, -5.39]),
+                               np.array([0.5, 6.0, 3.4, 4.0]), np.array([0, 0, 0, 1], np.uint8))
+
+        def bodies(when):
+            return [{"name": "Moon", "ra_deg": 40.0 + when.hour, "dec_deg": 10.0}]
+
+        def site(pier):
+            if pier != PIER:
+                return None
+            return {"version": "v1", "name": "Home", "latitude_deg": 49.9, "longitude_deg": -97.1, "elevation_m": 240.0,
+                    "horizon": [{"az_deg": 0.0, "alt_deg": 5.0}, {"az_deg": 180.0, "alt_deg": 15.0}]}
+
+        return SkyRoutes(service=SkyStreamService(catalog, ephemeris=bodies), ephemeris=bodies, site=site,
+                         names=lambda: {0: {"name": "Rigel"}, 3: {"name": "M 42", "type": "Nebula"}},
+                         figures=lambda: {"lines": [[[83.0, -0.3], [84.05, -1.2]]],
+                                          "names": [{"name": "Orion", "code": "ORI", "ra_deg": 84.0, "dec_deg": 0.0}]})
 
     async def start(self) -> None:
         await self.server.start("127.0.0.1", 0)

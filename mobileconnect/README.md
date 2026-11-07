@@ -13,12 +13,13 @@ The server side of the [Galileo MobileConnect](https://github.com/gordtulloch/Ga
 |---|---|
 | `routes.py` | The routes. Every operation goes through core's shared `Gateway`, so lease, confirmation, idempotency, safety and audit are core's |
 | `events.py` | The event stream: the engine's feed, sampled status and alerts |
+| `sky.py` | Sky data: core's `galileo.skystream`, with the planets, constellations, the site and horizon, names and an altitude check that it leaves to its host |
 | `state.py` | Core's status results and state fragments, translated to the state keys the apps read |
 | `clients.py`, `ui.py` | Approving apps, roles and revocation, from the Master's Options page only |
 
 ## Not in this draft
 
-Spoke Piers through the relay; session and schedule authoring routes; sky streaming; FITS download routes (apps can use Connect Link's own transfer); outreach; the load governor beyond the Gateway's own; idle-lease and disconnect release beyond what core's broker does; a surface for other plugins.
+Spoke Piers through the relay; session and schedule authoring routes; FITS download routes (apps can use Connect Link's own transfer); outreach; the load governor beyond the Gateway's own; idle-lease and disconnect release beyond what core's broker does; a surface for other plugins.
 
 ## Differences from the plugin SDD
 
