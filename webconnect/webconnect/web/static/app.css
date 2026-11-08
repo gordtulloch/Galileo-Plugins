@@ -76,6 +76,7 @@ label.check input { width: 1.4rem; min-height: 1.4rem; }
 .badge { padding: .15rem .6rem; border-radius: 999px; font-size: .8rem; border: 1px solid var(--border); color: var(--text-dim); }
 .badge.on { border-color: var(--ok); color: var(--ok); }
 .badge.warn { border-color: var(--warn); color: var(--warn); }
+.badge.bad { border-color: var(--danger); color: var(--danger); }
 .readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; }
 .readout .value { font: 600 1.35rem/1.2 ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--text-bright); }
 .readout .name { font-size: .75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; }
@@ -196,3 +197,11 @@ input[type="range"] { accent-color: var(--accent); padding: 0; background: trans
 .viewer.compact .stage img.frame { max-height: 38vh; object-fit: contain; margin: 0 auto; }
 .viewer.compact.portrait .stage { width: min(100%, 20rem); }
 .viewer.compact .stats-note { display: none; }
+
+/* Polar alignment: the headline error, the advice and the pole-against-axis plot */
+.polar-total { font: 700 3rem/1.1 ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--text-bright); margin: .4rem 0; }
+.polar-total.good { color: var(--ok); } .polar-total.fair { color: var(--warn); } .polar-total.poor { color: var(--danger); }
+.polar-advice { font-size: 1.1rem; margin: .25rem 0; }
+svg.polar-target { max-width: 20rem; margin: 0 auto; }
+.polar-axis { stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.polar-pole { stroke: var(--danger); stroke-width: 3; stroke-linecap: round; vector-effect: non-scaling-stroke; }

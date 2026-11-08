@@ -396,5 +396,5 @@ def test_tc_wcon_800_the_page_and_every_script_it_imports_are_served_without_inl
         assert ".style." not in source and "innerHTML" not in source, name
         todo += re.findall(r'from "\./([\w.]+\.js)"', source)
     assert {"app.js", "pier.js", "mount.js", "operations.js", "dom.js", "common.js", "camera.js", "focuser.js", "guiding.js",
-            "solve.js", "sessions.js", "history.js", "imageview.js"} <= seen
+            "solve.js", "polar.js", "sessions.js", "history.js", "imageview.js"} <= seen
     assert (static / "app.css").is_file()

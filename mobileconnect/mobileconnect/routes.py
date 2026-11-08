@@ -173,7 +173,7 @@ class Routes:
             elif held != holder_of(peer.peer_id):
                 who, name = self.describe_holder(held)
                 detail.update(kind="lease_held", holder=who, holder_name=name, can_take=True)
-                reason = f"{name} holds the lease on this Pier."
+                reason = f"{name} has control of this Pier."
         return self._error(outcome.status, reason, detail)
 
     @staticmethod
@@ -204,7 +204,7 @@ class Routes:
         if svc is None:
             return self._error("unavailable", NOT_RUNNING)
         if "control" not in peer.permissions:
-            return self._error("refused", "This device is a Viewer: only an Operator can hold a lease.")
+            return self._error("refused", "This device is a Viewer: only an Operator can take control.")
         holder = holder_of(peer.peer_id)
         token = request.headers.get("X-Confirm-Token", "")
         confirmed = bool(token) and self._redeem_takeover(token, peer.peer_id, pier)
@@ -213,7 +213,7 @@ class Routes:
             return {"pier": pier, "held_by_me": True, "holder": peer.peer_id}
         who, name = self.describe_holder(result.holder)
         return self._error(
-            "refused", f"{name} holds the lease on this Pier.",
+            "refused", f"{name} has control of this Pier.",
             {"kind": "lease_held", "holder": who, "holder_name": name, "can_take": bool(result.can_take_over)},
             confirm_token=self._new_takeover(peer.peer_id, pier), expires_in=TAKEOVER_TTL_S)
 
@@ -239,9 +239,10 @@ class Routes:
 
     @staticmethod
     def _ref(request) -> str:
-        """``current`` (the latest exposure) or ``stack`` (the live stack) of the Pier."""
+        """``current`` (the latest exposure), ``stack`` (the live stack), ``guide`` (the whole guide frame) or ``solve`` (the frame last captured for plate solving
+        or polar alignment) of the Pier."""
         kind = request.query.get("source", "current")
-        return f"{kind if kind in ('current', 'stack') else 'current'}:{request.query.get('pier', '')}"
+        return f"{kind if kind in ('current', 'stack', 'guide', 'solve') else 'current'}:{request.query.get('pier', '')}"
 
     def _previews(self):
         return getattr(self._surface(), "previews", None)

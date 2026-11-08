@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added (2026-11-08)
+
+- **Polar alignment page (`polar.js`; `WCON-450`).** A new **Polar** tab runs the desktop's plate-solve polar-alignment routine from the browser, for someone standing at the mount. **Start polar alignment** measures with three solves; the page then shows the remaining error as a large readout (green under 1′, amber under 5′, red above), the altitude and azimuth instructions in words, a plot of the pole (X) against the point the axis aims at (circle) to bring the X into, and a chart of the error over time, so the effect of each turn of a knob is visible. The readouts follow the event stream's `polar.state` rather than polling. Settings (exposure, settle, turn between solves, direction, refraction, start from the zenith) are under **Settings**; **Stop** ends the routine. Needs core's `polar.*` operations (`CSURF-145`); on an older Galileo the tab says polar alignment is not available. Added to the file list checked by `TC-WCON-300`. **Not yet used against a real mount or in a real browser.**
+
 ### Added (2026-11-06)
 
 - **The page now says when it is not live, and stops offering operations it cannot safely run (`WCON-780`).** When the event stream drops, a banner on the Pier screen says the state may be out of date and how long ago it last updated, and every Pier-affecting operation is disabled (and refused if attempted) until the stream returns. Emergency operations (stop everything, park, close dome) stay attemptable. Pages redraw their buttons when the stream goes down and when it comes back. Previously the page only dimmed and showed "Not live", while buttons stayed active. No server change. Test: `TC-WCON-780`, which runs the real `pier.js` under Node against a fake DOM and is skipped if Node is absent. Still open from `WCON-300`: the first snapshot covers the open Pier only, not every Pier the browser may see.

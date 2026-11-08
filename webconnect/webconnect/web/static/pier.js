@@ -8,6 +8,7 @@ import { cameraPage } from "./camera.js";
 import { focuserPage } from "./focuser.js";
 import { guidingPage } from "./guiding.js";
 import { solvePage } from "./solve.js";
+import { polarPage } from "./polar.js";
 import { sessionsPage } from "./sessions.js";
 import { historyPage } from "./history.js";
 import { statusPage, operationsPage } from "./operations.js";
@@ -19,6 +20,7 @@ const PAGES = [
   { id: "focuser", label: "Focus", icon: "◎", build: focuserPage },
   { id: "guiding", label: "Guiding", icon: "✛", build: guidingPage },
   { id: "solve", label: "Solve", icon: "✵", build: solvePage },
+  { id: "polar", label: "Polar", icon: "✧", build: polarPage },
   { id: "sessions", label: "Session", icon: "▶", build: sessionsPage },
   { id: "history", label: "History", icon: "≡", build: historyPage },
   { id: "status", label: "Status", icon: "▤", build: statusPage },
