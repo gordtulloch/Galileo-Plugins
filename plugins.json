@@ -24,6 +24,14 @@
     "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/kasa_switch-v1.0.0/galileo-plugin-kasa_switch-1.0.0.zip"
   },
   {
+    "name": "mobileconnect",
+    "description": "Operate this observatory from the Galileo MobileConnect app on a tablet or phone",
+    "version": "0.1.0",
+    "tier": "first_party",
+    "author": "Gord Tulloch",
+    "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/mobileconnect-v0.1.0/galileo-plugin-mobileconnect-0.1.0.zip"
+  },
+  {
     "name": "nodeconnect",
     "description": "Keep this node's equipment and settings in step with a Master node over Connect Link",
     "version": "0.1.0",
