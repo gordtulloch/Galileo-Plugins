@@ -95,6 +95,117 @@ async def test_tc_mcon_650_constellations(viewer):
     assert status == 200 and out["lines"] == [[[83.0, -0.3], [84.05, -1.2]]] and out["names"][0]["name"] == "Orion"
 
 
+@pytest.mark.requirement("TC-MCON-690")
+@pytest.mark.priority("P2")
+async def test_tc_mcon_690_survey_tiles_with_their_credit():
+    """MCON-690: a tile and its credit; nonsense and unavailable tiles are 404, without ever asking for nonsense."""
+    from types import SimpleNamespace
+
+    from mobileconnect import sky
+
+    asked = []
+
+    def tile(order, npix):
+        asked.append((order, npix))
+        return (b"\xff\xd8tile", "Credit") if npix == 5 else None
+
+    def get(**query):
+        return SimpleNamespace(query={k: str(v) for k, v in query.items()})
+    routes = sky.SkyRoutes(service=SimpleNamespace(), tile=tile)
+    good = await routes.survey_tile(None, get(order=3, npix=5))
+    assert good.status == 200 and good.body == b"\xff\xd8tile" and good.headers["X-Image-Credit"] == "Credit"
+    assert good.content_type == "image/jpeg"
+    assert (await routes.survey_tile(None, get(order=3, npix=6))).status == 404
+    asked.clear()
+    for bad in ({}, {"order": "x", "npix": 1}, {"order": -1, "npix": 0}, {"order": 10, "npix": 0}, {"order": 0, "npix": 12}):
+        assert (await routes.survey_tile(None, get(**bad))).status == 404
+    assert asked == []
+
+
+@pytest.mark.requirement("TC-MCON-690")
+@pytest.mark.priority("P2")
+async def test_tc_mcon_690_catalog_membership_is_cores(monkeypatch):
+    """MCON-690: what's in Messier, Caldwell and NGC is core's answer, at indexes after the stars, asked for once."""
+    from types import SimpleNamespace
+
+    from galileo.planning import sky_atlas, star_atlas
+    from mobileconnect import sky
+
+    def thing(*names):
+        return SimpleNamespace(primary_name=names[0], designations=list(names[1:]))
+    monkeypatch.setattr(star_atlas, "load_star_catalog", lambda: [0, 0, 0])
+    monkeypatch.setattr(sky_atlas.SkyAtlas, "filter", lambda self: [thing("M 42", "NGC 1976"), thing("C 14"), thing("NGC 7000")])
+    out = {c["name"]: c["indexes"] for c in sky.catalog_members()}
+    assert out == {"Messier": [3], "Caldwell": [4], "NGC": [3, 5]}
+
+    calls = []
+
+    def members():
+        calls.append(1)
+        return [{"name": "Messier", "indexes": [3]}]
+    routes = sky.SkyRoutes(service=SimpleNamespace(), members=members)
+    assert await routes.catalogs(None, None) == {"catalogs": [{"name": "Messier", "indexes": [3]}]}
+    await routes.catalogs(None, None)
+    assert len(calls) == 1
+
+
+@pytest.mark.requirement("TC-MCON-690")
+@pytest.mark.priority("P2")
+def test_tc_mcon_690_the_credit_goes_in_a_header_as_ascii(monkeypatch):
+    """MCON-690: a header is ASCII, so core's credit has to be. No tile from core is no tile here."""
+    from galileo.planning import sky_survey as core
+
+    from mobileconnect import sky
+
+    monkeypatch.setattr(core, "tile_jpeg", lambda order, npix: b"\xff\xd8x")
+    data, credit = sky.survey_tile(3, 5)
+    assert data == b"\xff\xd8x" and credit.isascii() and "Mellinger" in credit
+    monkeypatch.setattr(core, "tile_jpeg", lambda order, npix: None)
+    assert sky.survey_tile(3, 5) is None
+
+
+@pytest.mark.requirement("TC-MCON-650")
+@pytest.mark.priority("MVP")
+async def test_tc_mcon_650_a_slow_first_fetch_of_the_figures_holds_nothing_up(monkeypatch):
+    """Core may fetch them from the internet the first time: the request answers, and a later one has them."""
+    import threading
+    from types import SimpleNamespace
+
+    from mobileconnect import sky
+    monkeypatch.setattr(sky, "FIGURES_WAIT_S", 0.05)
+    release = threading.Event()
+    figures = {"lines": [[[1.0, 2.0], [3.0, 4.0]]], "names": []}
+
+    def slow():
+        release.wait(5)
+        return figures
+    routes = sky.SkyRoutes(service=SimpleNamespace(), figures=slow)
+    assert await routes.constellations(None, None) == {"lines": [], "names": []}
+    assert await routes.constellations(None, None) == {"lines": [], "names": []}     # still only the one fetch
+    release.set()
+    assert await routes.constellations(None, None) == figures
+    release.clear()
+    assert await routes.constellations(None, None) == figures                        # kept
+
+
+@pytest.mark.requirement("TC-MCON-680")
+@pytest.mark.priority("MVP")
+async def test_tc_mcon_680_limits_are_measured_with_the_catalog_already_loaded():
+    """Loading the catalog once takes seconds. If the benchmark timed that, every computer would look too slow."""
+    import time
+
+    import numpy as np
+    from galileo.skystream import ArrayCatalog, SkyStreamService
+
+    from mobileconnect import sky
+
+    def slow_catalog():
+        time.sleep(0.5)
+        return ArrayCatalog(np.array([1.0]), np.array([1.0]), np.array([1.0]), np.array([0], np.uint8))
+    routes = sky.SkyRoutes(service=SkyStreamService(slow_catalog))
+    assert (await routes.capability())["reduced"] is False
+
+
 @pytest.mark.requirement("TC-MCON-650")
 @pytest.mark.priority("MVP")
 def test_tc_mcon_650_core_figures_translate_to_the_wire(monkeypatch):

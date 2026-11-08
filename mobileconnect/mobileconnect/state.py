@@ -88,6 +88,20 @@ def _imaging(s: dict[str, Any]) -> dict[str, Any]:
         "imaging.why_not": s.get("why_not") or None, "camera.state": "Exposing" if capturing else "Idle",
         "activity.capture": "Exposing" if capturing else "Idle",
     }
+    exposure = s.get("exposure") or {}
+    seconds, elapsed = exposure.get("seconds"), exposure.get("elapsed")
+    out["imaging.exposure_s"] = seconds if exposure else None
+    out["imaging.exposure_progress"] = (min(1.0, max(0.0, elapsed / seconds)) if exposure and seconds and elapsed is not None
+                                        else None)
+    # The live stack: how far through the series it is, and what it holds. None when no stack is being built, so a
+    # bar the app was drawing goes away.
+    stack = s.get("stack") or {}
+    frames, requested = stack.get("frames"), stack.get("requested")
+    out["imaging.stack.count"] = frames if stack else None
+    out["imaging.stack.requested"] = requested if stack else None
+    out["imaging.stack.progress"] = min(1.0, frames / requested) if stack and frames is not None and requested else None
+    out["imaging.stack.total_exposure_s"] = stack.get("total_exposure_s") if stack else None
+    out["imaging.stack.method"] = (stack.get("method") or None) if stack else None
     frame = s.get("frame") or {}
     stats = frame.get("stats") or {}
     if stats:

@@ -33,6 +33,20 @@ def test_tc_mcon_320_imaging_series_and_a_large_histogram_is_shrunk():
 
 @pytest.mark.requirement("TC-MCON-320")
 @pytest.mark.priority("MVP")
+def test_tc_mcon_320_exposure_and_live_stack_progress_are_published_and_cleared():
+    keys = translate("imaging.status", {
+        "capturing": True, "series_done": 3, "series_total": 10, "exposure": {"seconds": 60.0, "elapsed": 15.0},
+        "stack": {"enabled": True, "frames": 3, "requested": 10, "total_exposure_s": 180.0, "method": "astroalign"}})
+    assert keys["imaging.exposure_s"] == 60.0 and keys["imaging.exposure_progress"] == 0.25
+    assert keys["imaging.stack.count"] == 3 and keys["imaging.stack.progress"] == 0.3
+    assert keys["imaging.stack.total_exposure_s"] == 180.0 and keys["imaging.stack.method"] == "astroalign"
+    idle = translate("imaging.status", {"capturing": False})
+    assert idle["imaging.exposure_progress"] is None and idle["imaging.stack.count"] is None
+    assert idle["imaging.stack.progress"] is None                         # an app drawing the bars drops them
+
+
+@pytest.mark.requirement("TC-MCON-320")
+@pytest.mark.priority("MVP")
 def test_tc_mcon_320_session_flip_guiding_and_safety():
     assert translate("session.status", None)["session.state"] == "Idle"
     session = translate("session.status", {"name": "M42", "state": "running", "frames_done": 3, "frames_total": 12, "block": "Series"})

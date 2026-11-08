@@ -26,6 +26,9 @@ from mobileconnect import API, PLUGIN
 
 logger = logging.getLogger(__name__)
 
+SURVEY_MAX_ORDER = 4                  # the survey's finest (Mellinger's mosaic)
+FIGURES_WAIT_S = 5.0                  # a first fetch can take a minute: answer anyway, and have them next time
+
 def planet_positions(when: dt.datetime) -> list[dict[str, Any]]:
     """Core's own ephemeris, the one the desktop's sky views use. Slow the first time (astropy's tables), so this
     always runs on a worker thread."""
@@ -46,6 +49,26 @@ def constellations() -> dict[str, Any]:
         "names": [{"name": name, "code": outlines.codes[i] if i < len(outlines.codes) else "",
                    "ra_deg": round(float(outlines.center_ra[i]), 3), "dec_deg": round(float(outlines.center_dec[i]), 3)}
                   for i, name in enumerate(outlines.names)]}
+
+
+def catalog_members() -> list[dict[str, Any]]:
+    """Which objects are in which of core's deep-sky catalogs, by their index in ``bundled_catalog``."""
+    from galileo.planning.sky_atlas import DSO_CATALOGS, SkyAtlas, catalogs_of
+    from galileo.planning.star_atlas import load_star_catalog
+    offset = len(load_star_catalog())
+    objects = SkyAtlas().filter()
+    of = [catalogs_of(o) for o in objects]
+    return [{"name": name, "indexes": [offset + i for i, cats in enumerate(of) if name in cats]} for name in DSO_CATALOGS]
+
+
+def survey_tile(order: int, npix: int) -> tuple[bytes, str] | None:
+    """One of core's sky survey tiles and its credit, which core fetches and caches itself."""
+    try:
+        from galileo.planning.sky_survey import SURVEY_CREDIT, tile_jpeg
+    except ImportError:                     # a Galileo from before the survey
+        return None
+    data = tile_jpeg(order, npix)
+    return (data, SURVEY_CREDIT) if data else None
 
 
 def site_of(pier: str) -> dict[str, Any] | None:
@@ -98,9 +121,15 @@ def object_names() -> dict[int, dict[str, Any]]:
 class SkyRoutes:
     def __init__(self, *, service: SkyStreamService | None = None, ephemeris: Callable[[dt.datetime], list[dict[str, Any]]] = planet_positions,
                  site: Callable[[str], dict[str, Any] | None] = site_of, names: Callable[[], dict[int, dict[str, Any]]] = object_names,
-                 figures: Callable[[], dict[str, Any]] = constellations, busy: Callable[[], bool] = lambda: False) -> None:
+                 figures: Callable[[], dict[str, Any]] = constellations, busy: Callable[[], bool] = lambda: False,
+                 tile: Callable[[int, int], tuple[bytes, str] | None] = survey_tile,
+                 members: Callable[[], list[dict[str, Any]]] = catalog_members) -> None:
+        self._members_of = members
+        self._members: list[dict[str, Any]] | None = None
+        self._tile_of = tile
         self._ephemeris_of, self._site, self._names_of, self._figures_of = ephemeris, site, names, figures
         self._figures: dict[str, Any] | None = None
+        self._figures_loading: asyncio.Future | None = None
         self._names: dict[int, dict[str, Any]] | None = None
         self._service = service or SkyStreamService(bundled_catalog, ephemeris=ephemeris, busy=busy)
 
@@ -110,12 +139,20 @@ class SkyRoutes:
         add(PLUGIN, "GET", f"{API}/sky/ephemeris", "view", self.ephemeris)
         add(PLUGIN, "GET", f"{API}/sky/site", "view", self.site)
         add(PLUGIN, "GET", f"{API}/sky/constellations", "view", self.constellations)
+        add(PLUGIN, "GET", f"{API}/sky/survey/tile", "view", self.survey_tile)
+        add(PLUGIN, "GET", f"{API}/sky/catalogs", "view", self.catalogs)
         add(PLUGIN, "GET", f"{API}/sky/check", "view", self.check)
         add(PLUGIN, "GET", f"{API}/sky/identify", "view", self.identify)
 
+    def _measure(self) -> Any:
+        """The limits, measured with the catalog already loaded: the service's benchmark times its first load too,
+        which made a fast computer report itself as too slow, and that cost every client its page size and rate."""
+        self._service._cat()
+        return self._service.capability()
+
     async def capability(self) -> dict[str, Any]:
         """Measured on first use, which reads the catalog, so never on the listener's own thread."""
-        cap = await asyncio.to_thread(self._service.capability)
+        cap = await asyncio.to_thread(self._measure)
         out: dict[str, Any] = {"available": cap.available, "reduced": not cap.vr_available,
                                "max_concurrent": cap.max_clients, "max_page": cap.max_page, "rate_per_s": cap.rate_per_s}
         if cap.reason:
@@ -134,7 +171,7 @@ class SkyRoutes:
         except (KeyError, ValueError):
             return web.json_response({"error": "ra, dec and radius are required, as numbers"}, status=400)
         try:
-            await asyncio.to_thread(self._service.capability)
+            await asyncio.to_thread(self._measure)
             with self._service.stream(peer.peer_id):
                 page = await self._service.catalog(ra, dec, radius, mag, lod, q.get("cursor", ""))
         except SkyStreamError as exc:
@@ -166,12 +203,43 @@ class SkyRoutes:
         return {"as_of": out["as_of"], "samples": samples}
 
     async def constellations(self, peer, request) -> dict[str, Any]:
-        if self._figures is None:
-            found = await asyncio.to_thread(self._figures_of)
-            if not found["lines"]:
-                return found                 # not kept: core may be able to fetch them next time
+        """Core may have to fetch these from the internet the first time, which can take a minute. That carries on
+        in the background; the app asks again each time it opens the sky."""
+        if self._figures is not None:
+            return self._figures
+        if self._figures_loading is None:
+            self._figures_loading = asyncio.ensure_future(asyncio.to_thread(self._figures_of))
+        done, _ = await asyncio.wait({self._figures_loading}, timeout=FIGURES_WAIT_S)
+        if not done:
+            return {"lines": [], "names": []}
+        loading, self._figures_loading = self._figures_loading, None
+        try:
+            found = loading.result()
+        except Exception:
+            logger.exception("Could not load the constellation figures")
+            return {"lines": [], "names": []}
+        if found["lines"]:
             self._figures = found
-        return self._figures
+        return found
+
+    async def catalogs(self, peer, request) -> dict[str, Any]:
+        if self._members is None:
+            self._members = await asyncio.to_thread(self._members_of)
+        return {"catalogs": self._members}
+
+    async def survey_tile(self, peer, request):
+        """One survey tile. A slow one holds up only this request, on a worker thread; a client asks for a few at a time."""
+        try:
+            order, npix = int(request.query["order"]), int(request.query["npix"])
+        except (KeyError, ValueError):
+            return web.json_response({"error": "order and npix must be numbers"}, status=404)
+        if not (0 <= order <= SURVEY_MAX_ORDER and 0 <= npix < 12 * 4 ** order):
+            return web.json_response({"error": "no such tile"}, status=404)
+        found = await asyncio.to_thread(self._tile_of, order, npix)
+        if found is None:
+            return web.json_response({"error": "that tile isn't available"}, status=404)
+        data, credit = found
+        return web.Response(body=data, content_type="image/jpeg", headers={"X-Image-Credit": credit})
 
     async def _site_or_none(self, pier: str) -> dict[str, Any] | None:
         return await asyncio.to_thread(self._site, pier)

@@ -237,6 +237,12 @@ class Routes:
         return PreviewParams(stretch=number("stretch", 50, 0, 100), max_size=number("w", 1024, 64, 4096),
                              quality=number("q", 85, 10, 95))
 
+    @staticmethod
+    def _ref(request) -> str:
+        """``current`` (the latest exposure) or ``stack`` (the live stack) of the Pier."""
+        kind = request.query.get("source", "current")
+        return f"{kind if kind in ('current', 'stack') else 'current'}:{request.query.get('pier', '')}"
+
     def _previews(self):
         return getattr(self._surface(), "previews", None)
 
@@ -245,7 +251,7 @@ class Routes:
         previews = self._previews()
         if previews is None:
             return web.json_response({"error": "Galileo is not offering pictures yet"}, status=404)
-        ref = f"current:{request.query.get('pier', '')}"
+        ref = self._ref(request)
         try:
             shot = await previews.render(ref, self._params(request))
             info = await previews.info(ref)
@@ -261,7 +267,7 @@ class Routes:
             return web.json_response({"error": "Galileo is not offering pictures yet"}, status=404)
         try:
             level, x, y = (int(request.query.get(k, "0")) for k in ("z", "x", "y"))
-            data = await previews.tile(f"current:{request.query.get('pier', '')}", level, x, y, self._params(request))
+            data = await previews.tile(self._ref(request), level, x, y, self._params(request))
         except ValueError:
             return web.json_response({"error": "z, x and y must be numbers"}, status=404)
         except PreviewError as exc:
