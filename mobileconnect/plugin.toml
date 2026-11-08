@@ -1,6 +1,5 @@
-# MobileConnect plugin manifest -- DRAFT. Named .draft so that build_plugins.py neither builds nor lists this
-# plugin: CI publishes every directory with a plugin.toml to the Marketplace on a push to main. Rename to
-# plugin.toml when the owner decides to publish it.
+# MobileConnect plugin manifest -- installed by the Galileo Plugin Marketplace or via
+# Options > Plugins > Install from file.
 #
 # The server side of the iOS, Android and Meta Quest apps. Master node only.
 

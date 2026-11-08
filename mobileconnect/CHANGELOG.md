@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Published.** The manifest is now `plugin.toml` (it was `plugin.toml.draft`, which kept the builder and the Marketplace from seeing the plugin), so CI builds the ZIP and lists it in the Marketplace with the next push to main.
+
 ### Added
 
 - **`source=solve` on the preview and tile routes.** Serves the frame last captured for plate solving or polar alignment (the Master's `solve:<pier>` frame source), so the app can show polar alignment's frame refreshing. Any other value still means the latest exposure.
