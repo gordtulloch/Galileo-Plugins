@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **NodeConnect no longer fails to start with `cannot import name 'local_info'`.** It imported a handshake helper that core never had, so on every real install the plugin stayed inert and its Options page was blank (the tests build their own fakes and never ran this path). It now takes this node's versions from core's `default_versions()`, which has the same `galileo`, `schema` and `protocol` fields.
+
 ### Added (2026-11-03)
 
 - **Status view (`NCON-330`, `nodeconnect.status`).** The Options page now shows the Master and pairing state, the connection (connected, retrying, waiting for a session to end, not paired), the last successful sync, the Master revision this node has reached, the configuration waiting to send and the received changes waiting to apply, the image queue in items and megabytes, the last problem, and, on a Master, its paired nodes. A part that cannot be read is skipped without hiding the rest. Test: `TC-NCON-330`.

@@ -252,7 +252,7 @@ async def _on_loop(fn):
 def build_runtime(ctx) -> Runtime:
     """Wire a Runtime from core's services (the real-world composition; tests build their own)."""
     from galileo import settings_store
-    from galileo.connect_link.handshake import local_info
+    from galileo.connect_link.server import default_versions
     from galileo.connect_link.host import get_host
     from galileo.connect_link.secrets_store import KeyringSecretStore
     from galileo.replication import (
@@ -292,6 +292,9 @@ def build_runtime(ctx) -> Runtime:
         lambda: runtime_ref[0].streams if runtime_ref else None,
         lambda: [n["peer_id"] for n in desk.nodes() if not n["revoked"]],
         post=lambda fn: host.call(_on_loop(fn)))
+    def local_info() -> dict:
+        return default_versions().as_dict()
+
     endpoint = MasterEndpoint(master, local_info, column_fingerprints, is_master=lambda: roles.role() != SPOKE,
                               on_committed=lambda node: broadcaster.notify(node))
     busy = get_session_busy()
