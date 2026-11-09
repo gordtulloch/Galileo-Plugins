@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### Fixed
+### Fixed (0.1.1)
 
 - **NodeConnect no longer fails to start with `cannot import name 'local_info'`.** It imported a handshake helper that core never had, so on every real install the plugin stayed inert and its Options page was blank (the tests build their own fakes and never ran this path). It now takes this node's versions from core's `default_versions()`, which has the same `galileo`, `schema` and `protocol` fields.
 

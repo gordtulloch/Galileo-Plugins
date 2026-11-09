@@ -4,6 +4,10 @@
 
 ### Changed
 
+- **Version 0.1.1.** No change to the plugin's code: the version moves with NodeConnect 0.1.1 so both are offered together. The "MobileConnect could not start; it stays inert" failure (`KEY_VALUES_MISMATCH`) was a Galileo core bug in the Connect Link certificate store and is fixed in Galileo itself; update Galileo as well.
+
+### Changed
+
 - **Published.** The manifest is now `plugin.toml` (it was `plugin.toml.draft`, which kept the builder and the Marketplace from seeing the plugin), so CI builds the ZIP and lists it in the Marketplace with the next push to main.
 
 ### Added

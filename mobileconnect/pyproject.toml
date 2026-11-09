@@ -4,7 +4,7 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "galileo-plugin-mobileconnect"
-version = "0.1.0"
+version = "0.1.1"
 description = "MobileConnect: the server side of the Galileo MobileConnect apps (draft)"
 license = { text = "GPL-3.0-or-later" }
 authors = [{ name = "Gord Tulloch", email = "gtulloch@sunrisesd.ca" }]

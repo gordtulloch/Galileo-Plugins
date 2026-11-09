@@ -4,7 +4,7 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "galileo-plugin-nodeconnect"
-version = "0.1.0"
+version = "0.1.1"
 description = "NodeConnect: node-to-node configuration sync and history/image transfer for Galileo (work in progress)"
 license = { text = "GPL-3.0-or-later" }
 authors = [{ name = "Gord Tulloch", email = "gtulloch@sunrisesd.ca" }]
