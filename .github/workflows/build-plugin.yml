@@ -1,6 +1,8 @@
 name: Build Plugin ZIPs
 
 on:
+  # Also run on demand: the Galileo release workflow dispatches this so plugin ZIPs are rebuilt with every release.
+  workflow_dispatch:
   push:
     branches: [main]
     # Trigger when any plugin's source or manifest changes.
