@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`GET /mobileconnect/v1/targets` and `DELETE /mobileconnect/v1/targets?name=`.** The Master's saved targets (Planning > Targets, saved from Search or What's Up Tonight and replicated between nodes) for the apps' new Targets screen: name, designations, J2000 position, type, magnitude, size, and a `version` that changes with the list. Any paired app reads it; removing needs control. Acting on an entry uses the existing `mount.slew` and `solve.centre` operations. Needs a Galileo with the saved targets list; an older one answers an empty list with a reason. Reinstall the plugin from its zip and restart Galileo.
+
 ### Changed
 
 - **Version 0.1.1.** No change to the plugin's code: the version moves with NodeConnect 0.1.1 so both are offered together. The "MobileConnect could not start; it stays inert" failure (`KEY_VALUES_MISMATCH`) was a Galileo core bug in the Connect Link certificate store and is fixed in Galileo itself; update Galileo as well.

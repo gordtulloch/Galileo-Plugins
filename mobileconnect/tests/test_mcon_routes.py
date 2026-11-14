@@ -395,3 +395,28 @@ async def test_tc_mcon_340_an_unsafe_monitor_raises_one_alert(world, http):
     _, out, _ = await app.request("GET", "/mobileconnect/v1/alerts")
     assert len(out["alerts"]) == 1 and out["alerts"][0]["severity"] == "critical" and "Rain" in out["alerts"][0]["message"]
     assert "type" not in out["alerts"][0]
+
+
+@pytest.mark.requirement("TC-MCON-1340")
+@pytest.mark.priority("P2")
+async def test_tc_mcon_1340_saved_targets_are_listed_and_an_operator_removes_one(world, http):
+    """MCON-1340: the saved targets list is served to every paired app, newest first with a version that changes
+    with the list; only an app with control removes an object."""
+    from galileo.planning.saved_targets import save_target
+    from galileo.planning.sky_atlas import DeepSkyObject, ObjectType
+    save_target(DeepSkyObject("M31", ["NGC 224"], 10.68, 41.27, ObjectType.GALAXY, 3.4, 178.0))
+    save_target(DeepSkyObject("M42", [], 83.82, -5.39, ObjectType.NEBULA, 4.0, 65.0))
+    viewer = await App(world, http).pair("Phone", role=VIEWER)
+    status, out, _ = await viewer.request("GET", "/mobileconnect/v1/targets")
+    assert status == 200 and {t["name"] for t in out["targets"]} == {"M31", "M42"}
+    m31 = next(t for t in out["targets"] if t["name"] == "M31")
+    assert m31 == {"name": "M31", "designations": ["NGC 224"], "ra_deg": 10.68, "dec_deg": 41.27, "type": "Galaxy",
+                   "magnitude": 3.4, "size_arcmin": 178.0, "description": ""}
+    first = out["version"]
+    assert (await viewer.request("DELETE", "/mobileconnect/v1/targets", query={"name": "M31"}))[0] == 403
+    operator = await App(world, http).pair("iPad", role=OPERATOR)
+    assert (await operator.request("DELETE", "/mobileconnect/v1/targets"))[0] == 400
+    status, out, _ = await operator.request("DELETE", "/mobileconnect/v1/targets", query={"name": "M31"})
+    assert status == 200 and out == {"removed": "M31"}
+    _, out, _ = await operator.request("GET", "/mobileconnect/v1/targets")
+    assert [t["name"] for t in out["targets"]] == ["M42"] and out["version"] != first

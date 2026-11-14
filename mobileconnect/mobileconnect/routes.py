@@ -10,6 +10,9 @@ a setting or a limit. Paths are flat with query parameters because Connect Link'
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
+import json
 import secrets
 import time
 from collections.abc import Callable
@@ -50,6 +53,8 @@ class Routes:
         add(PLUGIN, "DELETE", f"{API}/lease", "view", self.lease_release)
         add(PLUGIN, "GET", f"{API}/preview", "view", self.preview)
         add(PLUGIN, "GET", f"{API}/tile", "view", self.tile)
+        add(PLUGIN, "GET", f"{API}/targets", "view", self.targets)
+        add(PLUGIN, "DELETE", f"{API}/targets", "view", self.targets_remove)    # a Viewer reaches it and is refused
         if self.sky is not None:
             self.sky.register(routes)
 
@@ -223,6 +228,39 @@ class Routes:
         if svc is not None:
             svc.leases.release(pier, holder_of(peer.peer_id))
         return {"pier": pier, "held_by_me": False}
+
+    # -- saved targets -------------------------------------------------------------------------
+    @staticmethod
+    def _saved_targets() -> list[dict[str, Any]]:
+        """Core's saved-targets list (Planning > Targets), newest first, as the wire has it."""
+        from galileo.planning.saved_targets import list_targets
+        return [{"name": t.primary_name, "designations": list(t.designations), "ra_deg": t.ra_deg,
+                 "dec_deg": t.dec_deg, "type": str(t.object_type.value), "magnitude": t.magnitude,
+                 "size_arcmin": t.size_arcmin, "description": t.description} for t in list_targets()]
+
+    async def targets(self, peer, request) -> dict[str, Any]:
+        """The saved targets, replicated to this Master from the other nodes. ``version`` changes with the list, so an
+        app can tell whether what it holds is current. An older Galileo with no list answers an empty one."""
+        try:
+            items = await asyncio.to_thread(self._saved_targets)
+        except ImportError:
+            return {"targets": [], "version": "", "reason": "This Galileo has no saved targets list yet."}
+        digest = hashlib.sha256(json.dumps(items, sort_keys=True).encode()).hexdigest()[:12]
+        return {"targets": items, "version": digest}
+
+    async def targets_remove(self, peer, request):
+        """Takes one object off the saved list; the removal replicates to the other nodes like any edit."""
+        if "control" not in peer.permissions:
+            return web.json_response({"error": "Only an Operator can remove a saved target."}, status=403)
+        name = request.query.get("name", "")
+        if not name:
+            return web.json_response({"error": "name is required"}, status=400)
+        try:
+            from galileo.planning.saved_targets import remove_target
+            await asyncio.to_thread(remove_target, name)
+        except ImportError:
+            return web.json_response({"error": "This Galileo has no saved targets list yet."}, status=404)
+        return {"removed": name}
 
     # -- pictures ------------------------------------------------------------------------------
     @staticmethod
