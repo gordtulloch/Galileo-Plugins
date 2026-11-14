@@ -53,6 +53,9 @@ def test_tc_mcon_320_session_flip_guiding_and_safety():
     assert session["session.state"] == "Running" and session["session.progress"] == 0.25 and session["session.name"] == "M42"
     flip = translate("flip.status", {"phase": "due_soon", "minutes_to_flip": 3.5, "enabled": True, "why_not": ""})
     assert flip["flip.state"] == "Due soon" and flip["flip.minutes"] == 3.5 and flip["flip.why_not"] is None
+    deferred = translate("flip.status", {"phase": "due_soon", "deferred": True, "deferred_until": 1800000000.0})
+    assert deferred["flip.deferred"] is True and deferred["flip.deferred_until"] == 1800000000.0
+    assert translate("flip.status", {"phase": "idle"})["flip.deferred"] is False
     guiding = translate("guiding.status", {"connected": True, "app_state": "Guiding", "rms": {"ra": 0.4, "dec": 0.3},
                                            "trace": [[1.0, 1, 0.1, 0.2, 40]]})
     assert guiding["guiding.state"] == "Guiding" and guiding["guiding.rms_ra"] == 0.4 and guiding["guiding.star_snr"] == 40

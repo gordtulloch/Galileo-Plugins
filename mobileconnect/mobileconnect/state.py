@@ -131,7 +131,8 @@ def _flip(s: dict[str, Any]) -> dict[str, Any]:
     phase = str(s.get("phase") or "unavailable")
     return {"flip.state": phase.replace("_", " ").capitalize(), "flip.minutes": s.get("minutes_to_flip"),
             "flip.enabled": s.get("enabled"), "flip.pointing": s.get("pointing"), "flip.why_not": s.get("why_not") or None,
-            "flip.last": s.get("last"), "activity.flip": phase.replace("_", " ").capitalize()}
+            "flip.last": s.get("last"), "flip.deferred": bool(s.get("deferred")),
+            "flip.deferred_until": s.get("deferred_until"), "activity.flip": phase.replace("_", " ").capitalize()}
 
 
 def _session(s: dict[str, Any] | None) -> dict[str, Any]:
