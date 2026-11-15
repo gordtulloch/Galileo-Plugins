@@ -420,3 +420,26 @@ async def test_tc_mcon_1340_saved_targets_are_listed_and_an_operator_removes_one
     assert status == 200 and out == {"removed": "M31"}
     _, out, _ = await operator.request("GET", "/mobileconnect/v1/targets")
     assert [t["name"] for t in out["targets"]] == ["M42"] and out["version"] != first
+
+
+@pytest.mark.requirement("TC-MCON-1340")
+@pytest.mark.priority("P2")
+async def test_tc_mcon_1340_a_saved_target_has_a_thumbnail_when_one_can_be_had(world, http, monkeypatch):
+    """MCON-1340: the thumbnail route serves the survey picture of a saved target, and says 404 for a target that
+    is not saved or when no picture could be fetched."""
+    from galileo.planning import sky_atlas
+    from galileo.planning.saved_targets import save_target
+    from galileo.planning.sky_atlas import DeepSkyObject, ObjectType
+    save_target(DeepSkyObject("M31", ["NGC 224"], 10.68, 41.27, ObjectType.GALAXY, 3.4, 178.0))
+    picture = {"data": b""}
+
+    async def fetch(self, obj, size_px=150):
+        return picture["data"]
+
+    monkeypatch.setattr(sky_atlas.SkyAtlas, "_fetch_thumbnail", fetch)
+    app = await App(world, http).pair("Phone", role=VIEWER)
+    path = "/mobileconnect/v1/targets/thumbnail"
+    assert (await app.request("GET", path, query={"name": "M99"}))[0] == 404
+    assert (await app.request("GET", path, query={"name": "M31"}))[0] == 404          # offline: no picture
+    picture["data"] = b"\xff\xd8\xff\xd9"
+    assert (await app.request("GET", path, query={"name": "M31", "size": "250"}))[0] == 200

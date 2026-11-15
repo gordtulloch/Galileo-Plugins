@@ -54,6 +54,7 @@ class Routes:
         add(PLUGIN, "GET", f"{API}/preview", "view", self.preview)
         add(PLUGIN, "GET", f"{API}/tile", "view", self.tile)
         add(PLUGIN, "GET", f"{API}/targets", "view", self.targets)
+        add(PLUGIN, "GET", f"{API}/targets/thumbnail", "view", self.target_thumbnail)
         add(PLUGIN, "DELETE", f"{API}/targets", "view", self.targets_remove)    # a Viewer reaches it and is refused
         if self.sky is not None:
             self.sky.register(routes)
@@ -247,6 +248,27 @@ class Routes:
             return {"targets": [], "version": "", "reason": "This Galileo has no saved targets list yet."}
         digest = hashlib.sha256(json.dumps(items, sort_keys=True).encode()).hexdigest()[:12]
         return {"targets": items, "version": digest}
+
+    async def target_thumbnail(self, peer, request):
+        """The survey picture (a DSS cutout sized to the object, the desktop's own thumbnail and cache) of one saved
+        target, as a JPEG. 404 when the target is not saved or no picture could be had (offline)."""
+        name = request.query.get("name", "")
+        try:
+            size = max(64, min(400, int(request.query.get("size", "200"))))
+        except ValueError:
+            return web.json_response({"error": "size must be a number"}, status=400)
+        try:
+            from galileo.planning.saved_targets import list_targets
+            from galileo.planning.sky_atlas import SkyAtlas
+        except ImportError:
+            return web.json_response({"error": "This Galileo has no saved targets list yet."}, status=404)
+        found = next((t for t in await asyncio.to_thread(list_targets) if t.primary_name == name), None)
+        if found is None:
+            return web.json_response({"error": "No such saved target."}, status=404)
+        data = await SkyAtlas()._fetch_thumbnail(found, size)
+        if not data:
+            return web.json_response({"error": "No picture for this target just now."}, status=404)
+        return web.Response(body=data, content_type="image/jpeg", headers={"Cache-Control": "private, max-age=86400"})
 
     async def targets_remove(self, peer, request):
         """Takes one object off the saved list; the removal replicates to the other nodes like any edit."""
