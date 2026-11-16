@@ -61,6 +61,21 @@ def catalog_members() -> list[dict[str, Any]]:
     return [{"name": name, "indexes": [offset + i for i, cats in enumerate(of) if name in cats]} for name in DSO_CATALOGS]
 
 
+def object_labels() -> list[dict[str, Any]]:
+    """What the apps label and draw an icon for: every deep-sky object (name, type, size in arcminutes) and the
+    stars that have a proper name, by index in ``bundled_catalog``. Stars known only by a designation are left out:
+    labelling a hundred thousand of them would be noise, and the Star Atlas on the desktop doesn't either."""
+    from galileo.planning.sky_atlas import SkyAtlas
+    from galileo.planning.star_atlas import load_star_catalog
+    stars = load_star_catalog()
+    out: list[dict[str, Any]] = [{"index": i, "name": stars.names[i], "type": "Star"}
+                                 for i in range(len(stars)) if stars.names[i]]
+    out.extend({"index": len(stars) + i, "name": o.primary_name, "type": str(o.object_type),
+                "size_arcmin": round(float(o.size_arcmin or 0.0), 2)}
+               for i, o in enumerate(SkyAtlas().filter()))
+    return out
+
+
 def survey_tile(order: int, npix: int) -> tuple[bytes, str] | None:
     """One of core's sky survey tiles and its credit, which core fetches and caches itself."""
     try:
@@ -123,7 +138,10 @@ class SkyRoutes:
                  site: Callable[[str], dict[str, Any] | None] = site_of, names: Callable[[], dict[int, dict[str, Any]]] = object_names,
                  figures: Callable[[], dict[str, Any]] = constellations, busy: Callable[[], bool] = lambda: False,
                  tile: Callable[[int, int], tuple[bytes, str] | None] = survey_tile,
-                 members: Callable[[], list[dict[str, Any]]] = catalog_members) -> None:
+                 members: Callable[[], list[dict[str, Any]]] = catalog_members,
+                 labels: Callable[[], list[dict[str, Any]]] = object_labels) -> None:
+        self._labels_of = labels
+        self._labels: list[dict[str, Any]] | None = None
         self._members_of = members
         self._members: list[dict[str, Any]] | None = None
         self._tile_of = tile
@@ -141,6 +159,7 @@ class SkyRoutes:
         add(PLUGIN, "GET", f"{API}/sky/constellations", "view", self.constellations)
         add(PLUGIN, "GET", f"{API}/sky/survey/tile", "view", self.survey_tile)
         add(PLUGIN, "GET", f"{API}/sky/catalogs", "view", self.catalogs)
+        add(PLUGIN, "GET", f"{API}/sky/labels", "view", self.labels)
         add(PLUGIN, "GET", f"{API}/sky/check", "view", self.check)
         add(PLUGIN, "GET", f"{API}/sky/identify", "view", self.identify)
 
@@ -227,6 +246,12 @@ class SkyRoutes:
             self._members = await asyncio.to_thread(self._members_of)
         return {"catalogs": self._members}
 
+    async def labels(self, peer, request) -> dict[str, Any]:
+        """Name, type and size of the deep-sky objects and named stars, asked for once: it is the whole atlas."""
+        if self._labels is None:
+            self._labels = await asyncio.to_thread(self._labels_of)
+        return {"labels": self._labels}
+
     async def survey_tile(self, peer, request):
         """One survey tile. A slow one holds up only this request, on a worker thread; a client asks for a few at a time."""
         try:
@@ -286,5 +311,5 @@ class SkyRoutes:
         return out
 
 
-__all__ = ["SkyRoutes", "altitude_azimuth", "constellations", "horizon_altitude", "object_names", "planet_positions",
+__all__ = ["SkyRoutes", "altitude_azimuth", "constellations", "horizon_altitude", "object_labels", "object_names", "planet_positions",
            "site_of"]

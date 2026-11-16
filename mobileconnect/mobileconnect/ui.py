@@ -84,14 +84,24 @@ class MobileConnectOptions(QWidget):
 
     @staticmethod
     def _fill(widget: QListWidget, rows: list[tuple[str, str]]) -> None:
-        selected = widget.currentItem().data(_ID) if widget.currentItem() is not None else None
-        widget.clear()
-        for key, text in rows:
-            item = QListWidgetItem(text)
-            item.setData(_ID, key)
-            widget.addItem(item)
-            if key == selected:
-                widget.setCurrentItem(item)
+        # Rebuilt only when the rows changed: this runs on a 2 s timer, and clearing a QListWidget under Python-owned
+        # item wrappers crashed Galileo (a segfault in Shiboken destroying the item) while a phone was busy. Items are
+        # created by the widget itself (addItem(text)) so Python never holds a wrapper that clear() then destroys.
+        current = [(widget.item(i).data(_ID), widget.item(i).text()) for i in range(widget.count())]
+        if current == list(rows):
+            return
+        current_item = widget.currentItem()
+        selected = current_item.data(_ID) if current_item is not None else None
+        widget.blockSignals(True)
+        try:
+            widget.clear()
+            for key, text in rows:
+                widget.addItem(text)
+                widget.item(widget.count() - 1).setData(_ID, key)
+                if key == selected:
+                    widget.setCurrentRow(widget.count() - 1)
+        finally:
+            widget.blockSignals(False)
 
     def refresh(self) -> None:
         self.status_label.setText(

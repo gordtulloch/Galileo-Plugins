@@ -151,6 +151,41 @@ async def test_tc_mcon_690_catalog_membership_is_cores(monkeypatch):
 
 @pytest.mark.requirement("TC-MCON-690")
 @pytest.mark.priority("P2")
+async def test_tc_mcon_690_labels_name_and_type_what_the_apps_draw(monkeypatch):
+    """MCON-690: the apps label every deep-sky object and each named star, and draw the icon of its type; core names
+    and types them, at the indexes after the stars, and it is asked for once."""
+    from types import SimpleNamespace
+
+    from galileo.planning import sky_atlas, star_atlas
+    from mobileconnect import sky
+
+    class Stars(SimpleNamespace):
+        def __len__(self):
+            return 3
+    monkeypatch.setattr(star_atlas, "load_star_catalog", lambda: Stars(names=["Sirius", "", "Vega"], designations=["a", "b", "c"]))
+
+    def thing(name, kind, size):
+        return SimpleNamespace(primary_name=name, object_type=kind, size_arcmin=size)
+    monkeypatch.setattr(sky_atlas.SkyAtlas, "filter", lambda self: [thing("M 31", sky_atlas.ObjectType.GALAXY, 178.0),
+                                                                    thing("M 13", sky_atlas.ObjectType.GLOBULAR_CLUSTER, None)])
+    out = sky.object_labels()
+    assert out == [{"index": 0, "name": "Sirius", "type": "Star"}, {"index": 2, "name": "Vega", "type": "Star"},
+                   {"index": 3, "name": "M 31", "type": "Galaxy", "size_arcmin": 178.0},
+                   {"index": 4, "name": "M 13", "type": "GlobularCluster", "size_arcmin": 0.0}]
+
+    calls = []
+
+    def labels():
+        calls.append(1)
+        return out
+    routes = sky.SkyRoutes(service=SimpleNamespace(), labels=labels)
+    assert await routes.labels(None, None) == {"labels": out}
+    await routes.labels(None, None)
+    assert len(calls) == 1
+
+
+@pytest.mark.requirement("TC-MCON-690")
+@pytest.mark.priority("P2")
 def test_tc_mcon_690_the_credit_goes_in_a_header_as_ascii(monkeypatch):
     """MCON-690: a header is ASCII, so core's credit has to be. No tile from core is no tile here."""
     from galileo.planning import sky_survey as core

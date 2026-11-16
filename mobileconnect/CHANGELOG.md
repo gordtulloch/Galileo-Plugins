@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Galileo crashed (segmentation fault) while the MobileConnect Options page was open.** The page refreshes its pending-pairing and paired-app lists every 2 seconds by clearing and refilling them while holding Python references to the items; Qt deleting those items under the wrapper crashed the whole desktop (seen in `faulthandler.log` and the macOS crash report as `QListWidget.clear` inside `Shiboken::Object::destroy`). The lists are now rebuilt only when their rows change, with items created by the widget itself. **Checked:** edit only; **not run:** the plugin tests or the desktop. Needs the plugin reinstalled from its zip.
+
+### Added
+
+- **`GET /mobileconnect/v1/sky/labels`.** The name, type (core's `ObjectType`) and size in arcminutes of every deep-sky object, and the name of every star that has a proper name, by their index in the sky catalog stream, so the apps' Star Atlas can label them and draw the icon of their type as the desktop does. Fixed for a given Master and asked for once. Reinstall the plugin from its zip and restart Galileo; the apps still work against the old plugin, with unlabelled square markers.
+
 ### Added
 
 - **`GET /mobileconnect/v1/targets/thumbnail?name=&size=`.** The survey picture of one saved target as a JPEG (the same DSS cutout, sized to the object, that the desktop's Targets tiles use, from the desktop's cache when it has it), for the apps' Targets tiles. `size` is pixels (64-400, default 200). 404 when the target isn't saved or no picture could be had (no internet). Reinstall the plugin from its zip and restart Galileo.
