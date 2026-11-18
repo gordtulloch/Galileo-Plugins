@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- **A saved target with no magnitude or size broke the apps' Targets list.** `GET /mobileconnect/v1/targets` sent `null` for them where `api/openapi.yaml` has 99 (magnitude unknown) and 0 (size unknown), so an app that parses strictly gave up on the whole list ("couldn't give its saved targets"), as it did for any target typed in by hand. Missing values are now sent as the contract's. Reinstall the plugin from its zip and restart Galileo. **Checked:** edit only; **not run:** the plugin tests.
+
+### Fixed
+
 - **Galileo crashed (segmentation fault) while the MobileConnect Options page was open.** The page refreshes its pending-pairing and paired-app lists every 2 seconds by clearing and refilling them while holding Python references to the items; Qt deleting those items under the wrapper crashed the whole desktop (seen in `faulthandler.log` and the macOS crash report as `QListWidget.clear` inside `Shiboken::Object::destroy`). The lists are now rebuilt only when their rows change, with items created by the widget itself. **Checked:** edit only; **not run:** the plugin tests or the desktop. Needs the plugin reinstalled from its zip.
 
 ### Added

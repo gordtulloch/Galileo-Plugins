@@ -235,9 +235,12 @@ class Routes:
     def _saved_targets() -> list[dict[str, Any]]:
         """Core's saved-targets list (Planning > Targets), newest first, as the wire has it."""
         from galileo.planning.saved_targets import list_targets
-        return [{"name": t.primary_name, "designations": list(t.designations), "ra_deg": t.ra_deg,
-                 "dec_deg": t.dec_deg, "type": str(t.object_type.value), "magnitude": t.magnitude,
-                 "size_arcmin": t.size_arcmin, "description": t.description} for t in list_targets()]
+        # The wire has no nulls here (api/openapi.yaml): an unknown magnitude is 99 and an unknown size 0, and a target
+        # typed in by hand has neither, so a missing value must not reach an app that cannot read it.
+        return [{"name": t.primary_name, "designations": list(t.designations or []), "ra_deg": t.ra_deg,
+                 "dec_deg": t.dec_deg, "type": str(t.object_type.value),
+                 "magnitude": 99.0 if t.magnitude is None else t.magnitude,
+                 "size_arcmin": t.size_arcmin or 0.0, "description": t.description or ""} for t in list_targets()]
 
     async def targets(self, peer, request) -> dict[str, Any]:
         """The saved targets, replicated to this Master from the other nodes. ``version`` changes with the list, so an
