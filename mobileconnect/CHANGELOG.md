@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-18
+
+Version bump so the Marketplace offers the Options-page and targets fixes below to installs of 0.1.1.
+
+### Changed
+
+- **The selected app on the MobileConnect Options page is an inverse bar.** The Waiting for approval and Paired apps lists marked the selected row with a faint highlight that was hard to see; the row is now drawn in the page's text colour with its text in the page colour, in any theme and whether or not the list has focus, so it is clear which app Approve, Refuse, Make Viewer, Make Operator or Revoke will act on. Reinstall the plugin from its zip and restart Galileo. **Checked:** the module imports; **not run:** the Options page itself.
+
 ### Fixed
 
 - **A saved target with no magnitude or size broke the apps' Targets list.** `GET /mobileconnect/v1/targets` sent `null` for them where `api/openapi.yaml` has 99 (magnitude unknown) and 0 (size unknown), so an app that parses strictly gave up on the whole list ("couldn't give its saved targets"), as it did for any target typed in by hand. Missing values are now sent as the contract's. Reinstall the plugin from its zip and restart Galileo. **Checked:** edit only; **not run:** the plugin tests.

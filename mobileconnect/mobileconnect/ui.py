@@ -24,6 +24,15 @@ _REFRESH_MS = 2000
 _ID = Qt.ItemDataRole.UserRole
 
 
+# The selected row is an inverse bar (the text colour behind the page colour), in any theme and whether or not the list
+# has the focus, so which app a button will act on is never a matter of squinting at a small marker.
+_LIST_STYLE = (
+    "QListWidget::item { padding: 5px 8px; }"
+    "QListWidget::item:selected, QListWidget::item:selected:!active "
+    "{ background: palette(text); color: palette(base); }"
+)
+
+
 class MobileConnectOptions(QWidget):
     def __init__(self, runtime, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -37,6 +46,7 @@ class MobileConnectOptions(QWidget):
         waiting = QGroupBox("Waiting for approval")
         box = QVBoxLayout(waiting)
         self.pending_list = QListWidget()
+        self.pending_list.setStyleSheet(_LIST_STYLE)
         box.addWidget(self.pending_list)
         row = QHBoxLayout()
         self.approve_viewer = QPushButton("Approve as Viewer")
@@ -53,6 +63,7 @@ class MobileConnectOptions(QWidget):
         paired = QGroupBox("Paired apps")
         box = QVBoxLayout(paired)
         self.client_list = QListWidget()
+        self.client_list.setStyleSheet(_LIST_STYLE)
         box.addWidget(self.client_list)
         row = QHBoxLayout()
         self.make_viewer = QPushButton("Make Viewer")
