@@ -14,6 +14,7 @@ First-party plugins for [Galileo](https://github.com/gordtulloch/Galileo), the c
 | [generic_relay](#generic_relay) | Control generic HTTP-toggled Internet relay boards | 1.0.0 |
 | [allskycam](#allskycam) | Latest image and animation from an indi-allsky all-sky camera, with an optional dockable pane | 1.0.0 |
 | [wandererbox](#wandererbox) | Use the Wanderer Astro WandererBox Pro V3, Plus V3 and Dew Terminator on Galileo's Switches page | 1.0.0 |
+| [skyshot_solver](#skyshot_solver) | Add the Skyshot blind plate solver, and download its star index from Options | 0.1.0 |
 
 ---
 
@@ -226,6 +227,22 @@ Every test is tagged with its RTM requirement ID and priority:
 @pytest.mark.requirement("TC-VST-040")
 @pytest.mark.priority("MVP")
 def test_tc_vst_040_import_from_file(): ...
+```
+
+---
+
+## skyshot_solver
+
+**Skyshot blind plate solver** — registers a solver backend through `PluginContext.register_solver_backend` (core `PLUG-220`), so [Skyshot](https://github.com/ashtree74/skyshot-solver) appears beside ASTAP, astrometry.net and tetra3 under Options > Solve and on the Solve screen. Its **Options > Skyshot** page sets the program path and downloads the star index (SHA-256 verified, resumable, never overwriting an installed index).
+
+Experimental. Skyshot publishes no binaries, so the **Build Skyshot engine** workflow (`.github/workflows/skyshot-engine.yml`, run by hand) builds it unmodified from one pinned upstream commit for Windows x64, Linux x64, Linux ARM64 and macOS Apple silicon, using upstream's own tests and packager, and can publish the archives as a release. The plugin downloads the right one and trusts only the SHA-256 values pinned in `skyshot_solver/skyshot_solver/engine_builds.py`: after publishing, commit the copy of that file attached to the release and release a new plugin version. Until then the plugin tells users to build Skyshot themselves (`cargo build --release --locked`). It has so far been checked against a real Skyshot build only on Windows, with Skyshot's synthetic demo. Requirements `SKY-010`…`SKY-070`: `docs/plugins/skyshot_solver/` in the Galileo repository.
+
+**Attribution.** Skyshot Solver is Copyright 2026 Adam Jesionkiewicz, licensed under the Apache License 2.0; this plugin contains none of its code, and the prebuilt programs are unmodified builds that keep Skyshot's `LICENSE`, `NOTICE` and third-party notices. The plugin is not part of Skyshot and not endorsed by its author. Skyshot's star indexes are a separate download with their own terms (described by their author as intended for non-commercial use; derived from the ASTAP D80 catalogue and ESA's Gaia DR3), kept with their licence files and not redistributed here. The plugin's own code is GPL-3.0-or-later. See Galileo's `THIRD_PARTY_NOTICES.md`.
+
+```bash
+cd Galileo-Plugins/skyshot_solver
+pytest tests
+python build_zip.py
 ```
 
 ---

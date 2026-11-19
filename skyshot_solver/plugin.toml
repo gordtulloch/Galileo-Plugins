@@ -1,0 +1,15 @@
+# Skyshot plate-solver plugin manifest — installed by the Galileo Plugin Marketplace or via
+# Options > Plugins > Install from file.
+#
+# Adds Skyshot (github.com/ashtree74/skyshot-solver), a fast blind plate solver, beside ASTAP and the
+# other solvers, with a page under Options to set its program path and download its star index.
+
+name        = "skyshot_solver"
+version     = "0.1.0"
+api_min     = "1"
+api_max     = "1"
+author      = "Gord Tulloch"
+description = "Add the Skyshot blind plate solver, and download its star index from Options"
+tier        = "first_party"
+nav_level   = "secondary"
+entry_point = "skyshot_solver"
