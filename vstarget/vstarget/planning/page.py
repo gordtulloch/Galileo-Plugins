@@ -292,11 +292,13 @@ class VSTPlanningPage(QWidget):
         up_btn = QPushButton("▲")
         up_btn.setFixedWidth(34)
         up_btn.setToolTip("Move selected target up")
+        up_btn.setProperty("helpKey", "move-target-up")
         up_btn.clicked.connect(self._move_target_up)
 
         down_btn = QPushButton("▼")
         down_btn.setFixedWidth(34)
         down_btn.setToolTip("Move selected target down")
+        down_btn.setProperty("helpKey", "move-target-down")
         down_btn.clicked.connect(self._move_target_down)
 
         remove_btn = QPushButton("✕ Remove")

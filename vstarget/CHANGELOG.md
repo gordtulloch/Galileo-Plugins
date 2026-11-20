@@ -4,6 +4,10 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+
+- **Inline help for both screens.** Variable Stars and VS Analysis now ship `help/science.VSTPlugin.md` and `help/science.VSTAnalysisPlugin.md`, so the **?** button and the per-control tooltips work and Galileo's help audit no longer lists their 40 controls as undocumented. The two target-order arrow buttons carry an explicit help key (their ▲/▼ text has none). Needs the plugin reinstalled from its zip and Galileo restarted.
+
 ### Fixed
 
 - **No more `ImportError: sys.meta_path is None` traceback when Galileo exits.** `PlanStore.close()` did an `import contextlib` which fails when called from `__del__` during interpreter shutdown; it now closes the connection with a plain try/except and no import. No visible behaviour change otherwise (no help/wiki impact).
