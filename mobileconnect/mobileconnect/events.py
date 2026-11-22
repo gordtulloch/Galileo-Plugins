@@ -36,6 +36,7 @@ FEED_WAIT_S = 1.0
 ALERT_LIMIT = 200
 SAMPLER = f"{PLUGIN}:sampler"         # the principal on status reads: read-class, so it never needs a lease
 OP_EVENTS = {"OperationStarted": "op.started", "OperationProgress": "op.progress", "OperationFinished": "op.finished"}
+NOTICE_SEVERITIES = ("info", "success", "warning", "error")
 ALERT_SEVERITY = {"DeviceErrorEvent": "warning", "DeviceDisconnectedEvent": "warning"}
 
 
@@ -126,9 +127,27 @@ class EventPump:
         elif kind == "event":
             self._handle_bus_event(entry.get("name", ""), entry.get("payload") or {})
 
+    def raise_notice(self, payload: dict[str, Any]) -> None:
+        """One of the Master's event notices (an exposure started, a slew ended, ...) as a ``notice`` frame.
+
+        Unlike an alert it is not kept: the apps show it briefly and the Master's own log has the history.
+        """
+        title = str(payload.get("title") or "").strip()
+        if not title:
+            return
+        severity = payload.get("severity")
+        notice = {"type": "notice", "id": secrets.token_hex(6), "time": now_text(),
+                  "severity": severity if severity in NOTICE_SEVERITIES else "info", "title": title,
+                  "message": str(payload.get("message") or ""), "kind": str(payload.get("kind") or "")}
+        if payload.get("pier"):
+            notice["pier"] = str(payload["pier"])
+        self._broadcast(notice)
+
     def _handle_bus_event(self, name: str, payload: dict[str, Any]) -> None:
         phase = OP_EVENTS.get(name)
-        if phase:
+        if name == "NoticeEvent":
+            self.raise_notice(payload)
+        elif phase:
             event = {"type": phase, "correlation_id": payload.get("correlation_id", ""),
                      "pier": payload.get("pier"), "operation": payload.get("operation")}
             if payload.get("fraction") is not None:

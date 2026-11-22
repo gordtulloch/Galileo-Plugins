@@ -89,3 +89,26 @@ def test_tc_mcon_310_the_tracker_sends_only_what_changed_and_each_trace_sample_o
     assert tracker.new_trace_samples("p", first) == []
     first["trace"].append([3.0, 3, 0.5, 0.6, 40])
     assert tracker.new_trace_samples("p", first) == [{"ra": 0.5, "dec": 0.6}]
+
+
+@pytest.mark.requirement("TC-MCON-330")
+@pytest.mark.priority("MVP")
+def test_tc_mcon_330_the_masters_event_notices_reach_the_apps_as_notice_frames():
+    """MCON-330: a NoticeEvent in the engine's feed is sent on as a ``notice`` frame (not kept as an alert);
+    one without a title is dropped and an unknown severity becomes ``info``."""
+    from mobileconnect.events import EventPump
+
+    sent: list[dict] = []
+    pump = EventPump(lambda: None, lambda holder: (None, None), sent.append, lambda: True)
+    pump.handle_feed_entry({"type": "event", "name": "NoticeEvent", "source": "notices", "payload": {
+        "kind": "slew.ended", "title": "Slew complete", "message": "EQ6", "severity": "success",
+        "pier": "p1", "device": "EQ6", "time": 1.0}})
+    pump.handle_feed_entry({"type": "event", "name": "NoticeEvent", "payload": {"title": "Odd", "severity": "bogus"}})
+    pump.handle_feed_entry({"type": "event", "name": "NoticeEvent", "payload": {"message": "no title"}})
+    assert [n["type"] for n in sent] == ["notice", "notice"]
+    first, second = sent
+    assert (first["title"], first["message"], first["severity"], first["kind"], first["pier"]) == (
+        "Slew complete", "EQ6", "success", "slew.ended", "p1")
+    assert first["id"] and first["time"] and first["id"] != second["id"]
+    assert second["severity"] == "info" and "pier" not in second
+    assert not pump.alerts
