@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-23
+
+Version bump so the Marketplace offers event notices to installs of 0.1.2.
+
 ### Added
 
 - **The Master's event notices reach the apps (`MCON-330`).** The engine's event feed now carries a `NoticeEvent` for each significant event (an exposure starts, a slew begins or ends, a solve resolves, a focus result, equipment connects or disconnects); the plugin sends each to a connected app as a `notice` stream frame, which the app shows as a brief panel over the top-right corner. Unlike an alert it is not kept or listed by `GET /alerts`. Needs Galileo with event notices (`NOTE-040`) and the apps' matching release. Reinstall the plugin from its zip and restart Galileo. **Checked:** `tests/test_mcon_state.py::test_tc_mcon_330_*`; **not run:** a phone against a live Master.

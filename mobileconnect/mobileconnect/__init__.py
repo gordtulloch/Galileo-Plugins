@@ -8,7 +8,7 @@ The wire contract lives with the apps, in the Galileo-MobileConnect repository (
 ``Gateway``; this plugin translates between it and that contract.
 """
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 PLUGIN = "mobileconnect"
 API = f"/{PLUGIN}/v1"
