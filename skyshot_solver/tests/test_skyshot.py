@@ -531,3 +531,64 @@ def test_tc_sky_110_program_archive_keeps_licence_and_notices(tmp_path, serve):
     exe = engine.download_engine(tmp_path, target=target, builds=_builds(target, name, payload), verify=None)
     assert (exe.parent / "LICENSE").is_file() and (exe.parent / "third_party").is_dir()
     assert b"Adam Jesionkiewicz" in (exe.parent / "NOTICE").read_bytes()
+
+
+# --- flaky TLS handshakes (SKY-050) -------------------------------------------------------------
+
+import ssl
+import urllib.error
+
+
+@pytest.fixture
+def no_sleep(monkeypatch):
+    monkeypatch.setattr(data, "_sleep", lambda _s: None)
+
+
+@pytest.mark.requirement("TC-SKY-050")
+@pytest.mark.priority("P2")
+def test_tc_sky_050_transient_tls_failure_is_retried(tmp_path, monkeypatch, no_sleep):
+    """SKY-050: a TLS handshake that fails on the first attempts ("unable to get issuer certificate") and then
+    succeeds does not fail the download; certificate checking stays on."""
+    archive, bundle_json = _good_archive()
+    release = data.parse_release(_release_text(archive, bundle_json))
+    calls = []
+
+    def flaky(req, timeout=None, data=None):
+        calls.append(req.full_url)
+        if len(calls) < 3:
+            raise urllib.error.URLError(ssl.SSLCertVerificationError("unable to get issuer certificate"))
+        return _Resp(archive)
+
+    monkeypatch.setattr("galileo.net.urlopen_http", flaky)
+    assert data.install_preset(release, "full", tmp_path) == ["index"]
+    assert len(calls) == 3
+
+
+@pytest.mark.requirement("TC-SKY-050")
+@pytest.mark.priority("P2")
+def test_tc_sky_050_retries_are_bounded_and_server_errors_are_not_retried(tmp_path, monkeypatch, no_sleep):
+    """SKY-050: a connection that keeps failing gives up with a clear message after a few attempts, and an HTTP
+    error from the server is reported at once."""
+    archive, bundle_json = _good_archive()
+    release = data.parse_release(_release_text(archive, bundle_json))
+    attempts = []
+
+    def always_tls(req, timeout=None, data=None):
+        attempts.append(1)
+        raise urllib.error.URLError(ssl.SSLCertVerificationError("unable to get issuer certificate"))
+
+    monkeypatch.setattr("galileo.net.urlopen_http", always_tls)
+    with pytest.raises(data.DataError, match="issuer certificate"):
+        data.install_preset(release, "full", tmp_path)
+    assert len(attempts) == data._OPEN_ATTEMPTS
+
+    attempts.clear()
+
+    def not_found(req, timeout=None, data=None):
+        attempts.append(1)
+        raise urllib.error.HTTPError(req.full_url, 404, "Not Found", None, None)
+
+    monkeypatch.setattr("galileo.net.urlopen_http", not_found)
+    with pytest.raises(data.DataError, match="404"):
+        data.install_preset(release, "full", tmp_path / "b")
+    assert len(attempts) == 1

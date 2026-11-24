@@ -17,7 +17,7 @@ class SkyshotSolverPlugin(PluginBase):
     """Registers the Skyshot solver backend and its Options page."""
 
     name = "SkyshotSolverPlugin"
-    version = "0.1.0"
+    version = "0.1.1"
     api_version = "1"
     options_label = "Skyshot"
 

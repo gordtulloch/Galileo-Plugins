@@ -5,7 +5,7 @@
 # other solvers, with a page under Options to set its program path and download its star index.
 
 name        = "skyshot_solver"
-version     = "0.1.0"
+version     = "0.1.1"
 api_min     = "1"
 api_max     = "1"
 author      = "Gord Tulloch"

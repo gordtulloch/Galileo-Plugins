@@ -28,7 +28,12 @@ from PySide6.QtWidgets import (
 )
 
 from skyshot_solver import backend, credits, data, engine
-from skyshot_solver.settings import DEADLINE_RANGE_S, MODES, SkyshotSettings
+from skyshot_solver.settings import (
+    DEADLINE_RANGE_S,
+    MODES,
+    SkyshotSettings,
+    resolve_index,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -155,17 +160,20 @@ class SettingsPage(QWidget):
         row.addWidget(button)
         return box
 
+    def _live_index(self) -> Path | None:
+        """The index as the fields show it now, saved or not."""
+        root = self.root_edit.text().strip()
+        return resolve_index(self.index_edit.text(), Path(root) if root else self._settings.data_root)
+
     def refresh_status(self) -> None:
         exe = backend.find_executable(self.exe_edit.text().strip(), self._settings.data_root)
-        index = (Path(self.index_edit.text().strip()) if self.index_edit.text().strip()
-                 else data.index_path(Path(self.root_edit.text().strip()) if self.root_edit.text().strip()
-                                      else self._settings.data_root))
+        index = self._live_index()
         slots = data.installed_slots(self._settings.data_root)
         parts = [f"Program: {exe or 'not found'}",
-                 f"Index: {index if index is not None and index.is_dir() else 'not installed'}"]
+                 f"Index: {index if index is not None else 'not installed'}"]
         if slots:
             parts.append("Downloaded: " + ", ".join(slots))
-        ready = bool(exe) and index is not None and index.is_dir()
+        ready = bool(exe) and index is not None
         self.status.setText(("Ready. " if ready else "Not ready. ") + "   ".join(parts))
 
     def save(self) -> None:
@@ -305,9 +313,12 @@ class SettingsPage(QWidget):
     def check_index(self) -> None:
         """Run ``skyshot inspect`` on the index and show what it says."""
         exe = backend.find_executable(self.exe_edit.text().strip(), self._settings.data_root)
-        index = self._settings.resolved_index()
+        index = self._live_index()
         if not exe or index is None:
-            self.detail.setText("Needs the Skyshot program and an index first.")
+            self.detail.setText(
+                ("The Skyshot program was not found. " if not exe else "")
+                + ("No index was found in the index folder. It should hold a bundle.json, or an 'index' "
+                   "folder that does." if index is None else ""))
             return
         self._set_busy(True)
         self.bar.setRange(0, 0)

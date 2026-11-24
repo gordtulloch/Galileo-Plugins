@@ -26,8 +26,11 @@ import json
 import logging
 import re
 import shutil
+import ssl
 import tarfile
 import threading
+import time
+import urllib.error
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -133,10 +136,35 @@ def fetch_release(url: str = RELEASE_URL) -> Release:
     return release
 
 
-def _get_text(url: str) -> str:
+_OPEN_ATTEMPTS = 4
+_sleep = time.sleep                                      # replaced in tests
+
+
+def _open(url: str, headers: dict[str, str]):
+    """Open *url* (an https response to use as a context manager), trying a few times when the
+    connection or its TLS handshake fails. Needed because GitHub's download hosts sometimes present a
+    certificate chain Python on Windows cannot complete ("unable to get issuer certificate") on one
+    attempt and accept it on the next. A server error (4xx/5xx) is not retried, and nothing here
+    skips certificate verification."""
     from galileo.net import http_request, urlopen_http
+    last: Exception | None = None
+    for attempt in range(_OPEN_ATTEMPTS):
+        try:
+            return urlopen_http(http_request(url, headers=headers), timeout=_TIMEOUT_S)
+        except urllib.error.HTTPError:
+            raise
+        except (urllib.error.URLError, ssl.SSLError, ConnectionError, TimeoutError) as exc:
+            last = exc
+            logger.info("Opening %s failed (attempt %d of %d): %s", url, attempt + 1, _OPEN_ATTEMPTS, exc)
+            if attempt + 1 < _OPEN_ATTEMPTS:
+                _sleep(1.5 * (attempt + 1))
+    assert last is not None
+    raise last
+
+
+def _get_text(url: str) -> str:
     try:
-        with urlopen_http(http_request(url, headers={"User-Agent": "Galileo"}), timeout=_TIMEOUT_S) as resp:
+        with _open(url, {"User-Agent": "Galileo"}) as resp:
             return resp.read(2_000_000).decode("utf-8")
     except (OSError, ValueError) as exc:
         raise DataError(f"Could not fetch {url}: {exc}") from exc
@@ -181,12 +209,11 @@ def download_file(
         part.unlink()
         have = 0
 
-    from galileo.net import http_request, urlopen_http
     headers = {"User-Agent": "Galileo", "Accept-Encoding": "identity"}
     if have:
         headers["Range"] = f"bytes={have}-"
     try:
-        with urlopen_http(http_request(url, headers=headers), timeout=_TIMEOUT_S) as resp:
+        with _open(url, headers) as resp:
             if urlparse(resp.geturl()).scheme != "https":
                 raise DataError("The server redirected the download to an insecure address.")
             if have and getattr(resp, "status", 200) != 206:
@@ -273,6 +300,22 @@ def index_path(root: Path, release_id: str = RELEASE_ID) -> Path | None:
     """The folder to pass as ``--index``: the installed ``index`` slot, if there is one."""
     candidate = install_dir(root, release_id) / "index"
     return candidate if candidate.is_dir() else None
+
+
+def find_index(folder: Path) -> Path | None:
+    """The index folder to pass as ``--index`` given a folder the user named. Accepts the index folder
+    itself (it holds ``bundle.json``), a folder with an ``index`` slot in it, a release folder, or the
+    download folder above those; ``None`` when no index is found."""
+    if not folder.is_dir():
+        return None
+    if (folder / "bundle.json").is_file():
+        return folder
+    candidates = [folder / "index", install_dir(folder) / "index"]
+    try:
+        candidates += sorted(p / "index" for p in folder.iterdir() if p.is_dir() and not p.name.startswith("."))
+    except OSError:
+        pass
+    return next((c for c in candidates if c.is_dir()), None)
 
 
 def disk_needed(release: Release, preset: str, root: Path, cache: Path) -> int:

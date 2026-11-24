@@ -80,7 +80,14 @@ class SkyshotSettings:
 
     def resolved_index(self) -> Path | None:
         """The index folder to solve against, or ``None`` when there is none."""
-        if self.index_override:
-            path = Path(self.index_override)
-            return path if path.is_dir() else None
-        return data.index_path(self.data_root)
+        return resolve_index(self.index_override, self.data_root)
+
+
+def resolve_index(override: str, data_root: Path) -> Path | None:
+    """The index to use given the typed index folder (blank = look in *data_root*)."""
+    override = override.strip()
+    if not override:
+        return data.find_index(data_root)
+    path = Path(override)
+    # A folder named by hand is used as given when no index is found inside it; Skyshot reports a bad one.
+    return data.find_index(path) or (path if path.is_dir() else None)

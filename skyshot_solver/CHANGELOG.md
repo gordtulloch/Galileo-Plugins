@@ -4,7 +4,13 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-24
+
+First version with the prebuilt Skyshot program. The Marketplace offers it to installs of 0.1.0.
+
 ### Added
+
+- **The prebuilt Skyshot program is now published and pinned.** The `Build Skyshot engine` workflow has been run on the pinned upstream commit `76f0181`: it built Skyshot unmodified on Windows x64, Linux x64, Linux ARM64 and macOS Apple silicon, passed upstream's tests (run one at a time) and its packaged smoke solve on each, and published the archives as the release `skyshot-engine-v0.1.0-76f0181`. Their SHA-256 values are pinned in `engine_builds.py`, so **Download Skyshot program** is now enabled on those four platforms. Checked end to end on Windows: the plugin downloaded the published build, verified it, started it, kept its LICENSE, NOTICE and third-party notices beside it, and solved Skyshot's synthetic demo frame to the expected position with it. The Linux and macOS builds passed upstream's own tests in CI but have not been run through the plugin.
 
 - **Initial release: the Skyshot blind plate solver as an optional solver.** Once installed and enabled, **Skyshot (blind, local)** appears under Options > Solve > Solver and as a button under the Solve screen's Solver Mode. It runs `skyshot solve` on the frame with the installed star index and reads the solution from the WCS file Skyshot writes, reporting the position of the image centre. Skyshot takes no position hint, so Options > Solve's search radius and field-of-view hint do not apply to it. Needs Galileo with solver-plugin support (`PLUG-220`).
 - **Options > Skyshot page** to set the Skyshot program, the index folders, the solve mode and the time limit, and to **download the star index** (Full about 0.84 GB, optional Deep about 4.1 GB) with the exact size and disk space shown for confirmation first. Downloads are checked against the publisher's SHA-256 checksums, only a plain flat archive is unpacked, an installed index is never overwritten, and a cancelled or interrupted download resumes. **Check index** runs `skyshot inspect` on the index in use.
@@ -14,8 +20,13 @@ All notable changes to this plugin are documented here ([Keep a Changelog](https
 
 - **Credits and licences (`SKY-110`).** The Options page, both download dialogs and the help (new *Credits and licences* section) now credit Skyshot's author and its Apache License 2.0, say the plugin is not endorsed by Skyshot, and warn that the **star indexes have separate terms** (their author describes them as intended for non-commercial use; derived from the ASTAP D80 catalogue and ESA's Gaia DR3). An index archive without its `LICENSE-DATA.txt` is no longer installed, so the licence always stays with the data. `data.py` and `engine.py` carry attribution notes, and Galileo's `THIRD_PARTY_NOTICES.md` has a Skyshot section.
 
+### Fixed
+
+- **Downloads could fail with "unable to get issuer certificate".** GitHub's download hosts sometimes present a certificate chain that Python on Windows cannot complete on one attempt and accepts on the next, which made **Download Skyshot program** fail about half the time on one test machine. Opening a download (and the index release list) is now retried up to four times with a short pause; a server error such as 404 is still reported at once and certificate checking is never turned off. Found by running the real download, not by the unit tests.
+- **"Check index" and Capture & Solve said the index was missing even though the folders were set.** Check index used the saved index folder rather than the one typed in the field, and the index was only found at exactly `<download folder>/<release>/index`. The index folder may now be the index itself, a folder holding an `index` folder, a release folder, or the download folder above those, and a blank Index folder searches the download folder the same way. Check index now says whether the program or the index is the missing part. Press **Save** so the Solve screen uses the settings.
+
 ### Known limitations
 
 - **Checked against a real Skyshot build only with Skyshot's synthetic demo, on Windows.** A FITS frame rendered from the demo star list solves to the demo's known position and scale (opt-in test, `SKYSHOT_REAL_DIR`). Not yet run on real sky (needs the 0.84 GB index and a real frame) or on Linux, Linux ARM or macOS; upstream itself has real-sky qualification only on macOS ARM64.
-- **The build workflow has not been run yet**, so no prebuilt program is published and none is pinned. Intel Macs have no build.
+- Intel Macs have no prebuilt program (upstream does not test that target); build Skyshot yourself and set its path. The Windows build is the only one run through the plugin so far.
 - Data is pinned to release `2026.10.17.2` for engine `0.1.0`; newer data needs a plugin update.
