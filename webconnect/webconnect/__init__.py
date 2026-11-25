@@ -8,7 +8,7 @@ Two halves (SDD ADR-WCON-001): the Master half in this package runs inside Galil
 presents pages and asks.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 PLUGIN = "webconnect"
 API = f"/{PLUGIN}/v1"

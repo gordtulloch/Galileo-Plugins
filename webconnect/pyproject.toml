@@ -4,7 +4,7 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "galileo-plugin-webconnect"
-version = "0.1.0"
+version = "0.1.1"
 description = "WebConnect: browser control of a Galileo observatory (work in progress)"
 license = { text = "GPL-3.0-or-later" }
 authors = [{ name = "Gord Tulloch", email = "gtulloch@sunrisesd.ca" }]

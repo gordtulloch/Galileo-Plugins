@@ -7,7 +7,7 @@
 Installed through Options > Plugins; Galileo's loader imports this module and finds the plugin class.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 from nodeconnect.plugin import NodeConnectPlugin
 
