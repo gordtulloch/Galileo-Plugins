@@ -2,21 +2,11 @@
 
 Adds **Skyshot**, a fast *blind* plate solver, as an extra solver. Blind means it works out where the camera points from the stars alone, with no position, scale or rotation hint, so it also recovers when the mount's position is badly wrong. It runs entirely on this computer.
 
-Two things are needed: the **skyshot program** and a **star index**. This page downloads both. The program is an unmodified, prebuilt copy of Skyshot (Apache-2.0) made by Galileo's build for Windows, Linux (Intel/AMD and ARM, including Raspberry Pi 5) and macOS on Apple silicon. If there is none for your computer, or none has been published yet, **Download Skyshot program** is greyed out: build it once from [github.com/ashtree74/skyshot-solver](https://github.com/ashtree74/skyshot-solver) (`cargo build --release --locked`) and point **Skyshot program** at it. Once the status line says **Ready**, choose *Skyshot* under **Options > Solve > Solver**, or on the Solve screen.
+Two things are needed: the **skyshot program** and a **star index**. The buttons on this page download both, to fixed places inside Galileo's own data folder, so you are never asked where anything is. The program is an unmodified, prebuilt copy of Skyshot (Apache-2.0) made by Galileo's build for Windows, Linux (Intel/AMD and ARM, including Raspberry Pi 5) and macOS on Apple silicon. If there is none for your computer, **Download Skyshot program** is greyed out: build it once from [github.com/ashtree74/skyshot-solver](https://github.com/ashtree74/skyshot-solver) (`cargo build --release --locked`) and put the result in the *program* folder (press **Open folder**). Once the status line says **Ready**, choose *Skyshot* under **Options > Solve > Solver**, or on the Solve screen.
+
+Everything lives in a `skyshot` folder inside Galileo's data folder; the page shows its exact location. The downloaded program is under `engine`, the indexes under a folder named for the data release, and a program you built yourself goes in `program`, which is used before the downloaded one. To remove everything, delete that folder.
 
 Because Skyshot takes no hint, the *Search radius* and *Field-of-view hint* options under Options > Solve do not apply to it.
-
-## Skyshot program
-
-The skyshot executable (`skyshot.exe` on Windows). Leave blank to use the program downloaded with **Download Skyshot program**, else one found on your PATH or in `~/.cargo/bin`, where `cargo install` puts it. A path set here always wins, so use it for a build of your own.
-
-## Index download folder
-
-Where downloaded indexes are kept. Leave blank to use a `skyshot` folder inside Galileo's data folder. Allow a few gigabytes; the Deep index alone is about 4.3 GB once unpacked.
-
-## Index folder
-
-Use an index you already have, instead of the downloaded one: the folder you would pass to `skyshot --index`. Leave blank to use the downloaded Full index.
 
 ## Solve mode
 
@@ -32,11 +22,11 @@ Stores the settings on this page. Nothing here takes effect until you save.
 
 ## Download Skyshot program
 
-Downloads the prebuilt Skyshot program for this computer (a few megabytes) into the download folder and checks that it starts. The download is checked against a checksum built into this plugin, not one read from the download site, so a tampered file is refused. It is an unmodified build, kept with Skyshot's licence and notices, and it is **not code-signed**: it runs on your computer like any program you install. It is greyed out when no build is published for your computer, and does nothing if the program is already downloaded.
+Downloads the prebuilt Skyshot program for this computer (a few megabytes) into the `engine` folder and checks that it starts. The download is checked against a checksum built into this plugin, not one read from the download site, so a tampered file is refused. It is an unmodified build, kept with Skyshot's licence and notices, and it is **not code-signed**: it runs on your computer like any program you install. It is greyed out when no build is published for your computer, and does nothing if the program is already downloaded.
 
 ## Download Full index
 
-Downloads and installs Skyshot's recommended index (about 0.84 GB to download). Galileo first fetches the release list and shows you the exact size and the disk space needed before anything is downloaded. Every file is checked against its published checksum, and nothing is installed if it does not match. An index already installed is never changed, so it is safe to press again.
+Downloads and installs Skyshot's recommended index (about 0.84 GB to download) into Skyshot's folder. Allow a few gigabytes of free space while it unpacks. Galileo first fetches the release list and shows you the exact size and the disk space needed before anything is downloaded. Every file is checked against its published checksum, and nothing is installed if it does not match. An index already installed is never changed, so it is safe to press again.
 
 ## Download Deep index
 
@@ -48,7 +38,11 @@ Stops the download. What has been downloaded is kept, and pressing the download 
 
 ## Check index
 
-Runs `skyshot inspect` on the index in use and shows what it reports, to confirm the program can read it. Needs both the program and an index.
+Runs `skyshot inspect` on the downloaded index and shows what it reports, to confirm the program can read it. Needs both the program and an index, and says which one is missing.
+
+## Open folder
+
+Opens Skyshot's folder in your file manager, creating it first if need be. Use it to see what has been downloaded, to put a Skyshot program you built yourself in the `program` folder (needed only where no prebuilt program is offered), or to delete everything Skyshot has downloaded.
 
 ## Credits and licences
 

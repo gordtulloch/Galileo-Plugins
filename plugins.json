@@ -42,10 +42,10 @@
   {
     "name": "skyshot_solver",
     "description": "Add the Skyshot blind plate solver, and download its star index from Options",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "tier": "first_party",
     "author": "Gord Tulloch",
-    "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/skyshot_solver-v0.1.0/galileo-plugin-skyshot_solver-0.1.0.zip"
+    "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/skyshot_solver-v0.1.1/galileo-plugin-skyshot_solver-0.1.1.zip"
   },
   {
     "name": "switchbot_bot",

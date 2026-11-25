@@ -1,14 +1,25 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2025-2026 Gord Tulloch
 
-"""The plugin's settings, kept in Galileo's database under ``plugin.SkyshotSolverPlugin`` (SKY-070)."""
+"""The plugin's settings and fixed locations (SKY-070, SKY-120).
+
+Settings live in Galileo's database under ``plugin.SkyshotSolverPlugin``. Where things are kept is not
+a setting: everything the plugin downloads goes under one folder inside Galileo's own data folder, so
+nobody has to be asked for a path::
+
+    <Galileo data folder>/skyshot/
+        engine/<version>-<commit>/…       the downloaded Skyshot program
+        <data release>/index, index-deep  the downloaded star indexes
+        program/                          a Skyshot program you built yourself (used first)
+        download-cache/                   partial downloads
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
-from skyshot_solver import data
+from skyshot_solver import data, engine
 
 MODES = ("auto", "standard", "deep")
 DEADLINE_RANGE_S = (1, 600)
@@ -17,45 +28,25 @@ DEFAULT_DEADLINE_S = 30
 
 class SkyshotSettings:
     """Thin typed view over a ``PluginSettings`` (``ctx.settings()``): every read falls back to a
-    default and bad stored values are clamped, so the backend never sees nonsense."""
+    default and bad stored values are clamped, so the backend never sees nonsense. *root* replaces
+    the plugin's folder (tests only)."""
 
-    def __init__(self, store: Any) -> None:
+    def __init__(self, store: Any, root: Path | None = None) -> None:
         self._store = store
+        self._root = root
 
-    # The skyshot program; blank means "look for it".
-    @property
-    def executable(self) -> str:
-        return str(self._store.get("executable", "") or "").strip()
-
-    @executable.setter
-    def executable(self, value: str) -> None:
-        self._store.set("executable", value.strip())
-
-    # Where downloaded indexes are kept; blank means the default folder under Galileo's data folder.
     @property
     def data_root(self) -> Path:
-        configured = str(self._store.get("data_root", "") or "").strip()
-        if configured:
-            return Path(configured)
+        """The one folder everything is kept under (see the module docstring)."""
+        if self._root is not None:
+            return self._root
         from galileo.platform import get_data_dir
         return get_data_dir() / "skyshot"
 
     @property
-    def data_root_text(self) -> str:
-        return str(self._store.get("data_root", "") or "").strip()
-
-    @data_root_text.setter
-    def data_root_text(self, value: str) -> None:
-        self._store.set("data_root", value.strip())
-
-    # A index folder chosen by hand (for one built or installed outside the plugin); blank means the downloaded one.
-    @property
-    def index_override(self) -> str:
-        return str(self._store.get("index_path", "") or "").strip()
-
-    @index_override.setter
-    def index_override(self, value: str) -> None:
-        self._store.set("index_path", value.strip())
+    def program_dir(self) -> Path:
+        """Where to put a Skyshot program built by hand; used before the downloaded one."""
+        return engine.program_dir(self.data_root)
 
     @property
     def mode(self) -> str:
@@ -79,15 +70,5 @@ class SkyshotSettings:
         self._store.set("deadline_s", int(max(DEADLINE_RANGE_S[0], min(DEADLINE_RANGE_S[1], value))))
 
     def resolved_index(self) -> Path | None:
-        """The index folder to solve against, or ``None`` when there is none."""
-        return resolve_index(self.index_override, self.data_root)
-
-
-def resolve_index(override: str, data_root: Path) -> Path | None:
-    """The index to use given the typed index folder (blank = look in *data_root*)."""
-    override = override.strip()
-    if not override:
-        return data.find_index(data_root)
-    path = Path(override)
-    # A folder named by hand is used as given when no index is found inside it; Skyshot reports a bad one.
-    return data.find_index(path) or (path if path.is_dir() else None)
+        """The index folder to solve against, or ``None`` when none is downloaded."""
+        return data.find_index(self.data_root)

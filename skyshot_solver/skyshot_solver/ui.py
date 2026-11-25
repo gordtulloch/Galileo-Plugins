@@ -1,24 +1,23 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2025-2026 Gord Tulloch
 
-"""The plugin's page under Options > Skyshot: where the program is, the star index, and the
-download of the index (SKY-030 … SKY-070). Every control has an entry in the plugin's help file."""
+"""The plugin's page under Options > Skyshot: the program and star index (downloaded to fixed places
+under Galileo's data folder, so no path is ever asked for), the solve mode and the time limit
+(SKY-030 … SKY-070, SKY-120). Every control has an entry in the plugin's help file."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 import threading
-from pathlib import Path
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Qt, QUrl, Signal
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QComboBox,
-    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMessageBox,
     QProgressBar,
     QPushButton,
@@ -28,12 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from skyshot_solver import backend, credits, data, engine
-from skyshot_solver.settings import (
-    DEADLINE_RANGE_S,
-    MODES,
-    SkyshotSettings,
-    resolve_index,
-)
+from skyshot_solver.settings import DEADLINE_RANGE_S, MODES, SkyshotSettings
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +35,7 @@ logger = logging.getLogger(__name__)
 class _Events(QObject):
     """Signals the worker thread emits; Qt delivers them on the UI thread."""
     planned = Signal(object, str)           # (Release, preset)
-    progress = Signal(int, int, str)
+    progress = Signal(object, object, str)  # byte counts; `int` would be a C int and overflow past 2 GiB
     finished = Signal(str, bool)            # (message, ok)
 
 
@@ -68,7 +62,8 @@ class SettingsPage(QWidget):
         heading.setObjectName("PageTitle")
         layout.addWidget(heading)
         intro = QLabel("Skyshot is a fast blind plate solver: it needs no position hint. It needs its program "
-                       "and a star index. Choose it as the solver under Options > Solve.")
+                       "and a star index, which the buttons below download for you. Choose it as the solver "
+                       "under Options > Solve.")
         intro.setWordWrap(True)
         intro.setObjectName("StatusHint")
         layout.addWidget(intro)
@@ -79,15 +74,6 @@ class SettingsPage(QWidget):
 
         form = QFormLayout()
         layout.addLayout(form)
-        self.exe_edit = QLineEdit(settings.executable)
-        self.exe_edit.setPlaceholderText("Found automatically if on PATH or in ~/.cargo/bin")
-        form.addRow("Skyshot program", self._with_browse(self.exe_edit, "Skyshot program", folder=False))
-        self.root_edit = QLineEdit(settings.data_root_text)
-        self.root_edit.setPlaceholderText(str(settings.data_root))
-        form.addRow("Index download folder", self._with_browse(self.root_edit, "Index download folder", folder=True))
-        self.index_edit = QLineEdit(settings.index_override)
-        self.index_edit.setPlaceholderText("The downloaded index if left blank")
-        form.addRow("Index folder", self._with_browse(self.index_edit, "Index folder", folder=True))
         self.mode_combo = QComboBox()
         for mode in MODES:
             self.mode_combo.addItem(mode.capitalize(), mode)
@@ -98,6 +84,12 @@ class SettingsPage(QWidget):
         self.deadline_spin.setSuffix(" s")
         self.deadline_spin.setValue(settings.deadline_s)
         form.addRow("Solve time limit", self.deadline_spin)
+
+        self.where = QLabel("")
+        self.where.setObjectName("StatusHint")
+        self.where.setWordWrap(True)
+        self.where.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        layout.addWidget(self.where)
 
         self.save_btn = QPushButton("Save")
         self.save_btn.setObjectName("AccentButton")
@@ -111,7 +103,7 @@ class SettingsPage(QWidget):
         if build is None:
             self.engine_btn.setEnabled(False)
             self.engine_btn.setToolTip("No prebuilt Skyshot program is published for this computer yet. "
-                                       "Build it from the Skyshot repository and set its path above.")
+                                       "Build it from the Skyshot repository and put it in the program folder (Open folder).")
         self.full_btn = QPushButton("Download Full index")
         self.full_btn.clicked.connect(lambda: self._start_plan(data.PRESET_FULL))
         self.deep_btn = QPushButton("Download Deep index")
@@ -121,7 +113,9 @@ class SettingsPage(QWidget):
         self.cancel_btn.clicked.connect(self._cancel.set)
         self.check_btn = QPushButton("Check index")
         self.check_btn.clicked.connect(self.check_index)
-        for btn in (self.engine_btn, self.full_btn, self.deep_btn, self.cancel_btn, self.check_btn):
+        self.open_btn = QPushButton("Open folder")
+        self.open_btn.clicked.connect(self.open_folder)
+        for btn in (self.engine_btn, self.full_btn, self.deep_btn, self.cancel_btn, self.check_btn, self.open_btn):
             row.addWidget(btn)
         row.addStretch(1)
         layout.addLayout(row)
@@ -143,43 +137,32 @@ class SettingsPage(QWidget):
 
     # -- helpers -----------------------------------------------------------------------------
 
-    def _with_browse(self, edit: QLineEdit, title: str, folder: bool) -> QWidget:
-        box = QWidget()
-        row = QHBoxLayout(box)
-        row.setContentsMargins(0, 0, 0, 0)
-        button = QPushButton("Browse…")
-
-        def browse() -> None:
-            path = (QFileDialog.getExistingDirectory(self, title) if folder
-                    else QFileDialog.getOpenFileName(self, title)[0])
-            if path:
-                edit.setText(path)
-
-        button.clicked.connect(browse)
-        row.addWidget(edit, 1)
-        row.addWidget(button)
-        return box
-
-    def _live_index(self) -> Path | None:
-        """The index as the fields show it now, saved or not."""
-        root = self.root_edit.text().strip()
-        return resolve_index(self.index_edit.text(), Path(root) if root else self._settings.data_root)
+    def open_folder(self) -> None:
+        """Show Skyshot's folder in the file manager, creating it first if need be."""
+        root = self._settings.data_root
+        try:
+            self._settings.program_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            self.detail.setText(f"Could not create {root}: {exc}")
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(root)))
 
     def refresh_status(self) -> None:
-        exe = backend.find_executable(self.exe_edit.text().strip(), self._settings.data_root)
-        index = self._live_index()
-        slots = data.installed_slots(self._settings.data_root)
-        parts = [f"Program: {exe or 'not found'}",
+        root = self._settings.data_root
+        exe = backend.find_executable(root)
+        index = self._settings.resolved_index()
+        slots = data.installed_slots(root)
+        parts = [f"Program: {exe or 'not installed'}",
                  f"Index: {index if index is not None else 'not installed'}"]
         if slots:
             parts.append("Downloaded: " + ", ".join(slots))
         ready = bool(exe) and index is not None
         self.status.setText(("Ready. " if ready else "Not ready. ") + "   ".join(parts))
+        self.where.setText(
+            f"Everything is kept in {root}. To use a Skyshot program you built yourself, put it in "
+            f"{self._settings.program_dir}.")
 
     def save(self) -> None:
-        self._settings.executable = self.exe_edit.text()
-        self._settings.data_root_text = self.root_edit.text()
-        self._settings.index_override = self.index_edit.text()
         self._settings.mode = self.mode_combo.currentData()
         self._settings.deadline_s = self.deadline_spin.value()
         self.refresh_status()
@@ -187,7 +170,7 @@ class SettingsPage(QWidget):
 
     def _set_busy(self, busy: bool) -> None:
         self._busy = busy
-        for btn in (self.full_btn, self.deep_btn, self.check_btn, self.save_btn):
+        for btn in (self.full_btn, self.deep_btn, self.check_btn, self.save_btn, self.open_btn):
             btn.setEnabled(not busy)
         self.engine_btn.setEnabled(not busy and engine.build_for(engine.current_target()) is not None)
         self.cancel_btn.setEnabled(busy)
@@ -312,13 +295,12 @@ class SettingsPage(QWidget):
 
     def check_index(self) -> None:
         """Run ``skyshot inspect`` on the index and show what it says."""
-        exe = backend.find_executable(self.exe_edit.text().strip(), self._settings.data_root)
-        index = self._live_index()
+        exe = backend.find_executable(self._settings.data_root)
+        index = self._settings.resolved_index()
         if not exe or index is None:
             self.detail.setText(
-                ("The Skyshot program was not found. " if not exe else "")
-                + ("No index was found in the index folder. It should hold a bundle.json, or an 'index' "
-                   "folder that does." if index is None else ""))
+                ("The Skyshot program is not installed: press Download Skyshot program. " if not exe else "")
+                + ("The star index is not installed: press Download Full index." if index is None else ""))
             return
         self._set_busy(True)
         self.bar.setRange(0, 0)

@@ -70,6 +70,11 @@ def build_for(target: str | None, builds: ModuleType = engine_builds) -> dict | 
         return None
 
 
+def program_dir(data_root: Path) -> Path:
+    """Where a program built by hand is put; it is used before the downloaded one (SKY-120)."""
+    return data_root / "program"
+
+
 def engine_root(data_root: Path, builds: ModuleType = engine_builds) -> Path:
     """Where this plugin version's program lives: one folder per upstream commit."""
     return data_root / "engine" / f"{builds.ENGINE_VERSION}-{builds.UPSTREAM_COMMIT[:7] or 'unpinned'}"

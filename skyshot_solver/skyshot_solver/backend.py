@@ -39,13 +39,16 @@ _STARTUP_ALLOWANCE_S = 90.0
 _EXE_NAMES = ("skyshot.exe", "skyshot") if sys.platform == "win32" else ("skyshot",)
 
 
-def find_executable(configured: str = "", data_root: Path | None = None) -> str:
-    """The Skyshot program to run: the configured path if one is set (and exists), else the program
-    this plugin downloaded under *data_root*, else one on PATH or in cargo's install folder. Empty
-    when none is found."""
-    if configured:
-        return configured if Path(configured).is_file() else ""
+def find_executable(data_root: Path | None = None) -> str:
+    """The Skyshot program to run, looked for in fixed places and in this order: one placed by hand in
+    the plugin's ``program`` folder under *data_root*, the one this plugin downloaded under *data_root*,
+    then PATH and cargo's install folder (for a program installed another way). Empty when none is
+    found."""
     if data_root is not None:
+        for name in _EXE_NAMES:
+            placed = engine.program_dir(data_root) / name
+            if placed.is_file():
+                return str(placed)
         downloaded = engine.installed_executable(data_root)
         if downloaded is not None:
             return str(downloaded)
@@ -148,7 +151,7 @@ class SkyshotBackend(SolverBackend):
     # -- readiness ------------------------------------------------------------------------
 
     def executable(self) -> str:
-        return find_executable(self._settings.executable, self._settings.data_root)
+        return find_executable(self._settings.data_root)
 
     def index(self) -> Path | None:
         return self._settings.resolved_index()
@@ -163,7 +166,8 @@ class SkyshotBackend(SolverBackend):
                         "Options > Skyshot (Download Skyshot program).")
             return ("Solving with Skyshot needs the skyshot program. No prebuilt one is published for "
                     "this computer: build it from github.com/ashtree74/skyshot-solver "
-                    "(cargo build --release --locked) and set its path under Options > Skyshot.")
+                    "(cargo build --release --locked) and put it in "
+                    f"{engine.program_dir(self._settings.data_root)} (Options > Skyshot has an Open folder button).")
         return "Solving with Skyshot needs its star index. Download it under Options > Skyshot."
 
     # -- solving --------------------------------------------------------------------------

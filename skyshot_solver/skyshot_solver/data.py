@@ -146,15 +146,21 @@ def _open(url: str, headers: dict[str, str]):
     certificate chain Python on Windows cannot complete ("unable to get issuer certificate") on one
     attempt and accept it on the next. A server error (4xx/5xx) is not retried, and nothing here
     skips certificate verification."""
-    from galileo.net import http_request, urlopen_http
+    from galileo.net import certifi_ssl_context, http_request, urlopen_http
     last: Exception | None = None
+    context = None                       # the OS trust store first; certifi's bundle after a certificate failure
     for attempt in range(_OPEN_ATTEMPTS):
         try:
-            return urlopen_http(http_request(url, headers=headers), timeout=_TIMEOUT_S)
+            if context is None:
+                return urlopen_http(http_request(url, headers=headers), timeout=_TIMEOUT_S)
+            return urlopen_http(http_request(url, headers=headers), timeout=_TIMEOUT_S, context=context)
         except urllib.error.HTTPError:
             raise
         except (urllib.error.URLError, ssl.SSLError, ConnectionError, TimeoutError) as exc:
             last = exc
+            reason = getattr(exc, "reason", exc)
+            if context is None and isinstance(reason, ssl.SSLCertVerificationError):
+                context = certifi_ssl_context()
             logger.info("Opening %s failed (attempt %d of %d): %s", url, attempt + 1, _OPEN_ATTEMPTS, exc)
             if attempt + 1 < _OPEN_ATTEMPTS:
                 _sleep(1.5 * (attempt + 1))

@@ -208,11 +208,14 @@ class _FakeProc:
 
 
 def _backend(tmp_path: Path) -> backend.SkyshotBackend:
-    exe = tmp_path / "skyshot.exe"
+    """A backend whose program and index are in the plugin's fixed places under *tmp_path*."""
+    exe = tmp_path / "program" / backend._EXE_NAMES[0]
+    exe.parent.mkdir()
     exe.write_text("")
-    index = tmp_path / "index"
-    index.mkdir()
-    return backend.SkyshotBackend(SkyshotSettings(_Store(executable=str(exe), index_path=str(index), mode="deep", deadline_s=12)))
+    index = tmp_path / data.RELEASE_ID / "index"
+    index.mkdir(parents=True)
+    (index / "bundle.json").write_text("{}")
+    return backend.SkyshotBackend(SkyshotSettings(_Store(mode="deep", deadline_s=12), root=tmp_path))
 
 
 @pytest.mark.requirement("TC-SKY-010")
@@ -266,14 +269,20 @@ async def test_tc_sky_010_failures_give_a_reason(tmp_path, monkeypatch):
 
 @pytest.mark.requirement("TC-SKY-070")
 @pytest.mark.priority("P2")
-def test_tc_sky_070_settings_are_clamped_and_readiness_needs_program_and_index(tmp_path):
+def test_tc_sky_070_settings_are_clamped_and_readiness_needs_program_and_index(tmp_path, monkeypatch):
     """SKY-070: bad stored settings fall back to safe values, and the solver is ready only with both program and index."""
     settings = SkyshotSettings(_Store(mode="bogus", deadline_s="x"))
     assert settings.mode == "auto" and settings.deadline_s == 30
     settings.deadline_s = 99999
     assert settings.deadline_s == 600
-    nothing = backend.SkyshotBackend(SkyshotSettings(_Store(data_root=str(tmp_path), executable=str(tmp_path / "missing"))))
+    monkeypatch.setattr(backend, "_EXE_NAMES", ("no-such-skyshot",))                      # nothing on PATH or in cargo's folder
+    nothing = backend.SkyshotBackend(SkyshotSettings(_Store(), root=tmp_path / "empty"))
     assert not nothing.is_available() and "skyshot program" in nothing.missing_message()
+    if engine.build_for(engine.current_target()) is None:                                  # nothing to download: say where to put one
+        assert str(tmp_path / "empty" / "program") in nothing.missing_message()
+    else:
+        assert "Download Skyshot program" in nothing.missing_message()
+    monkeypatch.undo()
     assert _backend(tmp_path).is_available()
 
 
@@ -287,17 +296,21 @@ def test_tc_sky_060_options_page_shows_readiness_and_saves(tmp_path, monkeypatch
     app = QApplication.instance() or QApplication([])          # noqa: F841 -- must stay alive for the widgets
     from skyshot_solver.ui import SettingsPage
 
-    store = _Store(data_root=str(tmp_path))
-    monkeypatch.setattr(backend, "find_executable", lambda configured="", data_root=None: configured if configured and Path(configured).is_file() else "")
-    page = SettingsPage(SkyshotSettings(store))
-    assert page.status.text().startswith("Not ready") and "not found" in page.status.text()
-    exe = tmp_path / "skyshot.exe"
-    exe.write_text("")
+    store = _Store()
+    monkeypatch.setattr(backend, "_EXE_NAMES", ("no-such-skyshot",))                      # nothing on PATH or in cargo's folder
+    page = SettingsPage(SkyshotSettings(store, root=tmp_path))
+    assert page.status.text().startswith("Not ready") and "not installed" in page.status.text()
+    assert str(tmp_path) in page.where.text() and str(tmp_path / "program") in page.where.text()
+    for gone in ("exe_edit", "root_edit", "index_edit"):                                    # no path is ever asked for
+        assert not hasattr(page, gone)
+    program = tmp_path / "program" / "no-such-skyshot"
+    program.parent.mkdir()
+    program.write_text("")
     (tmp_path / data.RELEASE_ID / "index").mkdir(parents=True)
-    page.exe_edit.setText(str(exe))
+    (tmp_path / data.RELEASE_ID / "index" / "bundle.json").write_text("{}")
     page.deadline_spin.setValue(45)
     page.save()
-    assert store.values["executable"] == str(exe) and store.values["deadline_s"] == 45
+    assert store.values["deadline_s"] == 45
     assert page.status.text().startswith("Ready")
 
 
@@ -424,8 +437,9 @@ def test_tc_sky_090_links_are_refused_and_the_program_must_run(tmp_path, serve):
 
 @pytest.mark.requirement("TC-SKY-090")
 @pytest.mark.priority("P2")
-def test_tc_sky_090_downloaded_program_is_used_after_a_configured_one(tmp_path, monkeypatch):
-    """SKY-090: lookup order is the configured path, then the downloaded program, then PATH."""
+def test_tc_sky_090_lookup_order_is_program_folder_then_downloaded_then_path(tmp_path, monkeypatch):
+    """SKY-090: the program is looked for in fixed places: the plugin's program folder, then the downloaded
+    program, then PATH; nothing is ever configured by path."""
     target = engine.current_target()
     if target is None:
         pytest.skip("no build target on this platform")
@@ -433,14 +447,16 @@ def test_tc_sky_090_downloaded_program_is_used_after_a_configured_one(tmp_path, 
     monkeypatch.setattr(engine, "engine_builds", builds)
     monkeypatch.setattr(engine, "installed_executable",
                         lambda root, target=None, builds=builds: next(iter(sorted(engine.engine_root(root, builds).glob("*/*"))), None))
-    downloaded = engine.engine_root(tmp_path, builds) / "skyshot-0.1.0-x" / engine.exe_name(target)
+    monkeypatch.setattr(backend, "_EXE_NAMES", ("no-such-skyshot",))
+    assert backend.find_executable(tmp_path) == ""
+    downloaded = engine.engine_root(tmp_path, builds) / "skyshot-0.1.0-x" / "no-such-skyshot"
     downloaded.parent.mkdir(parents=True)
     downloaded.write_text("")
-    configured = tmp_path / "mine.exe"
-    configured.write_text("")
-    assert backend.find_executable(str(configured), tmp_path) == str(configured)
-    assert backend.find_executable("", tmp_path) == str(downloaded)
-    assert backend.find_executable(str(tmp_path / "gone.exe"), tmp_path) == ""            # a bad configured path is not silently replaced
+    assert backend.find_executable(tmp_path) == str(downloaded)
+    placed = tmp_path / "program" / "no-such-skyshot"
+    placed.parent.mkdir()
+    placed.write_text("")
+    assert backend.find_executable(tmp_path) == str(placed)                                  # a program put there by hand wins
 
 
 @pytest.mark.requirement("TC-SKY-010")
@@ -469,7 +485,13 @@ async def test_tc_sky_010_real_binary_solves_the_synthetic_demo():
         img[y0:y0 + 13, x0:x0 + 13] += 4000 * np.exp(-((gx - s["x"]) ** 2 + (gy - s["y"]) ** 2) / (2 * 1.3 ** 2))
     frame = src / "demo" / "frame.fits"
     fits.PrimaryHDU(img).writeto(frame, overwrite=True)
-    solver = backend.SkyshotBackend(SkyshotSettings(_Store(executable=str(exe), index_path=str(src / "demo" / "index"))))
+    import shutil
+    import tempfile
+    root = Path(tempfile.mkdtemp(prefix="skyshot_real_"))
+    (root / "program").mkdir()
+    shutil.copy2(exe, root / "program" / exe.name)
+    shutil.copytree(src / "demo" / "index", root / "index")
+    solver = backend.SkyshotBackend(SkyshotSettings(_Store(), root=root))
     result = await solver.solve(frame, None, SolverParams())
     assert result.success, result.failure_reason
     assert result.ra_deg == pytest.approx(83.8, abs=0.005) and result.dec_deg == pytest.approx(-5.4, abs=0.005)
@@ -510,7 +532,7 @@ def test_tc_sky_110_credits_name_the_author_licences_and_data_sources(tmp_path):
     app = QApplication.instance() or QApplication([])          # noqa: F841 -- must stay alive for the widgets
     from skyshot_solver.ui import SettingsPage
 
-    page = SettingsPage(SkyshotSettings(_Store(data_root=str(tmp_path))))
+    page = SettingsPage(SkyshotSettings(_Store(), root=tmp_path))
     shown = page.credit.text()
     for needle in ("Adam Jesionkiewicz", "Apache License 2.0", "not endorsed", "non-commercial", "ASTAP", "Gaia DR3",
                    credits.SKYSHOT_URL):
@@ -553,8 +575,11 @@ def test_tc_sky_050_transient_tls_failure_is_retried(tmp_path, monkeypatch, no_s
     release = data.parse_release(_release_text(archive, bundle_json))
     calls = []
 
-    def flaky(req, timeout=None, data=None):
+    contexts = []
+
+    def flaky(req, timeout=None, data=None, context=None):
         calls.append(req.full_url)
+        contexts.append(context)
         if len(calls) < 3:
             raise urllib.error.URLError(ssl.SSLCertVerificationError("unable to get issuer certificate"))
         return _Resp(archive)
@@ -562,6 +587,9 @@ def test_tc_sky_050_transient_tls_failure_is_retried(tmp_path, monkeypatch, no_s
     monkeypatch.setattr("galileo.net.urlopen_http", flaky)
     assert data.install_preset(release, "full", tmp_path) == ["index"]
     assert len(calls) == 3
+    # After the first certificate failure the retries verify against certifi's bundle (still verifying).
+    assert contexts[0] is None and all(c is not None for c in contexts[1:])
+    assert all(c.verify_mode == ssl.CERT_REQUIRED for c in contexts[1:])
 
 
 @pytest.mark.requirement("TC-SKY-050")
@@ -573,7 +601,7 @@ def test_tc_sky_050_retries_are_bounded_and_server_errors_are_not_retried(tmp_pa
     release = data.parse_release(_release_text(archive, bundle_json))
     attempts = []
 
-    def always_tls(req, timeout=None, data=None):
+    def always_tls(req, timeout=None, data=None, context=None):
         attempts.append(1)
         raise urllib.error.URLError(ssl.SSLCertVerificationError("unable to get issuer certificate"))
 
@@ -592,3 +620,33 @@ def test_tc_sky_050_retries_are_bounded_and_server_errors_are_not_retried(tmp_pa
     with pytest.raises(data.DataError, match="404"):
         data.install_preset(release, "full", tmp_path / "b")
     assert len(attempts) == 1
+
+
+# --- fixed locations (SKY-120) ------------------------------------------------------------------
+
+
+@pytest.mark.requirement("TC-SKY-120")
+@pytest.mark.priority("P2")
+def test_tc_sky_120_everything_lives_in_one_fixed_folder_inside_galileos_data_folder(tmp_path, monkeypatch):
+    """SKY-120: the program and indexes are kept under a fixed folder inside Galileo's data folder, there is
+    no stored path setting, and a program placed in the program folder is found without being told."""
+    monkeypatch.setattr("galileo.platform.get_data_dir", lambda: tmp_path)
+    store = _Store(executable="C:/elsewhere/skyshot.exe", data_root="D:/elsewhere", index_path="E:/elsewhere")
+    settings = SkyshotSettings(store)                                  # older versions stored paths; they are ignored now
+    assert settings.data_root == tmp_path / "skyshot"
+    assert settings.program_dir == tmp_path / "skyshot" / "program"
+    assert engine.engine_root(settings.data_root).parent == tmp_path / "skyshot" / "engine"
+    assert data.install_dir(settings.data_root) == tmp_path / "skyshot" / data.RELEASE_ID
+    assert settings.resolved_index() is None
+
+    monkeypatch.setattr(backend, "_EXE_NAMES", ("no-such-skyshot",))
+    assert backend.find_executable(settings.data_root) == ""
+    placed = settings.program_dir / "no-such-skyshot"
+    placed.parent.mkdir(parents=True)
+    placed.write_text("")
+    assert backend.find_executable(settings.data_root) == str(placed)
+    index = data.install_dir(settings.data_root) / "index"
+    index.mkdir(parents=True)
+    (index / "bundle.json").write_text("{}")
+    assert settings.resolved_index() == index
+    assert backend.SkyshotBackend(settings).is_available()
