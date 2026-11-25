@@ -34,10 +34,10 @@
   {
     "name": "nodeconnect",
     "description": "Keep this node's equipment and settings in step with a Master node over Connect Link",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "tier": "first_party",
     "author": "Gord Tulloch",
-    "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/nodeconnect-v0.1.1/galileo-plugin-nodeconnect-0.1.1.zip"
+    "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/nodeconnect-v0.1.2/galileo-plugin-nodeconnect-0.1.2.zip"
   },
   {
     "name": "skyshot_solver",
@@ -74,9 +74,9 @@
   {
     "name": "webconnect",
     "description": "Operate this observatory from a web browser on the local network",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "tier": "first_party",
     "author": "Gord Tulloch",
-    "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/webconnect-v0.1.0/galileo-plugin-webconnect-0.1.0.zip"
+    "download_url": "https://github.com/gordtulloch/Galileo-Plugins/releases/download/webconnect-v0.1.1/galileo-plugin-webconnect-0.1.1.zip"
   }
 ]
