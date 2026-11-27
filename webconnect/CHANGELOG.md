@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Polar tab shows whether the figures are current (`WCON-450`).** The total error is rated Good, Fair or Poor in words; each update shows its reading number and age, and says **OUT OF DATE** with the reason when the latest solve did not update it; poor-pointing warnings are shown. Needs a Master with the matching change; reinstall the plugin and restart Galileo.
+
 ## [0.1.1] - 2026-11-25
 
 Version bump so the Marketplace offers the changes below to installs of 0.1.0.

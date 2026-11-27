@@ -8,6 +8,7 @@ import { el } from "./dom.js";
 import { badges, describe, lineChart, messenger, operationTracker, poller, svg } from "./common.js";
 
 const BAND = { good: "on", fair: "warn", poor: "bad" };
+const RATING = { good: "Good", fair: "Fair", poor: "Poor" };
 const MIN_RANGE_ARCMIN = 5;               // the plot never zooms in tighter than this, so a small error looks small
 
 /** An angle as a polar-alignment screen reads it: 45″, 3′12″ or 1°02′05″. */
@@ -52,6 +53,8 @@ export function polarPage(ctx) {
   const progressText = el("div", { className: "message" });
   const phaseText = el("div", { className: "message", role: "status", "aria-live": "polite" });
   const total = el("div", { className: "polar-total", "aria-live": "polite" }, "—");
+  const reading = el("div", { className: "message", role: "status" });
+  const warning = el("div", { className: "notice warn", hidden: true });
   const altitude = el("div", { className: "polar-advice" });
   const azimuth = el("div", { className: "polar-advice" });
   const hint = el("div", { className: "dim" });
@@ -73,7 +76,7 @@ export function polarPage(ctx) {
   const root = el("div", {}, el("h2", {}, "Polar alignment"), notice,
     el("div", { className: "card" }, flags, el("div", { className: "row" }, start, stop), bar, progressText, messageNode),
     el("h3", {}, "Adjust"),
-    el("div", { className: "card" }, phaseText, total, altitude, azimuth, hint),
+    el("div", { className: "card" }, phaseText, warning, total, reading, altitude, azimuth, hint),
     el("div", { className: "grid" },
       el("div", { className: "card" }, el("h3", {}, "Pole and axis"), plotBox),
       el("div", { className: "card" }, el("h3", {}, "Error over time"), trendBox)),
@@ -86,6 +89,15 @@ export function polarPage(ctx) {
   operationTracker(ctx, "polar.", bar, progressText);
 
   let last = null;
+  /** Which reading the figures are and how old, so an unchanged or stale error is never mistaken for a fresh one. */
+  function drawReading() {
+    if (!last?.reading) { reading.textContent = ""; return; }
+    const age = last.measured_at ? Math.max(0, Math.round(Date.now() / 1000 - last.measured_at)) : null;
+    const taken = last.running && age !== null ? `, taken ${age} s ago` : "";
+    reading.textContent = last.stale ? `OUT OF DATE. Reading ${last.reading}${taken}. ${last.problem}`
+      : `Reading ${last.reading}${taken}.${last.running ? "" : " Not running, so this will not update."}`;
+  }
+  setInterval(drawReading, 1000);
   function draw() {
     const known = ctx.catalogue.has("polar.status");
     const why = ctx.why("polar.start");
@@ -104,7 +116,10 @@ export function polarPage(ctx) {
     const error = picture?.error;
     phaseText.textContent = picture?.phase === "measuring" && picture.step
       ? `Measuring (${picture.step} of ${picture.steps}): ${picture.message}` : picture?.message || "";
-    total.textContent = error ? formatAngle(error.total_arcsec) : "—";
+    total.textContent = error ? `${formatAngle(error.total_arcsec)} ${RATING[error.quality] || ""}`.trim() : "—";
+    warning.textContent = (picture?.warnings || []).join(" ");
+    warning.hidden = !warning.textContent;
+    drawReading();
     total.className = `polar-total ${error?.quality || ""}`;
     altitude.textContent = error?.altitude_advice || "";
     azimuth.textContent = error?.azimuth_advice || "";
